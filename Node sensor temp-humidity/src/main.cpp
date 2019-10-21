@@ -33,11 +33,11 @@ void sendData()
 
 void setup()
 {
+  pinMode(LED_BUILTIN, OUTPUT);
   dht.begin();
   Wire.begin(SELF_ADDR);          // join i2c bus with defined address
   Wire.onRequest(sendData);       // register request event
   Serial.begin(9600);             // start serial for debug
-  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop()

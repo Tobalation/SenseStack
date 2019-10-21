@@ -4,7 +4,7 @@
 
 #define BLINK_TIME 500
 
-byte SELF_ADDR = 127;
+byte SELF_ADDR = 126;
 
 void blink() 
 {
@@ -27,10 +27,10 @@ void sendData()
 
 void setup()
 {
+  pinMode(LED_BUILTIN, OUTPUT);
   Wire.begin(SELF_ADDR);          // join i2c bus with defined address
   Wire.onRequest(sendData);       // register request event
   Serial.begin(9600);             // start serial for debug
-  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop()

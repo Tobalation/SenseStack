@@ -98,12 +98,12 @@ void getSensorModuleReading(byte sensorAddr)
 void setup()
 {
   delay(2000); // allow any slow modules to startup
+  pinMode(LED_BUILTIN, OUTPUT);
   blink();
   blink();
   blink();
   Serial.begin(9600);
-  Wire.begin();
-  pinMode(LED_BUILTIN, OUTPUT);
+  Wire.begin(); // join i2c bus as a master 
   scanDevices();
 }
 
