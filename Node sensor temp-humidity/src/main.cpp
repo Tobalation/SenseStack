@@ -22,7 +22,7 @@ void blink()
 void sendData()
 {
   char replyData[MAX_SENSOR_REPLY_LENGTH];
-  String reply = String(temperature) + ' ' + String(humidity);
+  String reply = CH_TYPE_FLOAT + String(temperature) + CH_TERMINATOR + CH_TYPE_FLOAT + String(humidity) + CH_TERMINATOR;
   reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
   Serial.println(replyData);
   Wire.write(replyData); // send string on request

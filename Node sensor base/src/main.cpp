@@ -18,7 +18,7 @@ void sendData()
 {
   blink();
   char replyData[MAX_SENSOR_REPLY_LENGTH];
-  String reply = "basic sensor";
+  String reply = CH_TYPE_CUSTOM + "basic sensor" + CH_TERMINATOR;
   reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
   Wire.write(replyData); // send string on request
 }
