@@ -1,14 +1,13 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <ArduinoJson.h>
 #include "protocol.h"
 
 #define LED_BUILTIN 2
 #define UPDATE_INTERVAL 6000
 #define BLINK_TIME 500
 
-byte testCount = 0;
-
-// char moduleData[MAX_SENSORS][MAX_SENSOR_REPLY_LENGTH];  // module reply string buffer
+byte sensorCount = 0;
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 
 void blink()
@@ -77,6 +76,7 @@ void scanDevices()
 // helper function to request data from a sensor module
 void getSensorModuleReading(byte sensorAddr)
 {
+  // print out who we are communicating with
   Serial.print("Sending request to 0x");
   if (sensorAddr < 16)
   {
@@ -84,11 +84,58 @@ void getSensorModuleReading(byte sensorAddr)
   }
   Serial.println(sensorAddr, HEX);
 
+  // begin transmission
   Wire.requestFrom(sensorAddr, MAX_SENSOR_REPLY_LENGTH);
+
+  char replyData[MAX_SENSOR_REPLY_LENGTH]= {0};
+  String dataType = "";
+  uint8_t replyIter = 0;
+
   while (Wire.available())
   {
     char c = Wire.read();
-    Serial.print(c);
+    switch(c) {
+      case CH_TYPE_INT:
+        dataType = "Integer";
+        replyIter = 0;
+        Serial.println("Reading Integer type");
+      break;
+      case CH_TYPE_FLOAT:
+        dataType = "Float";
+        replyIter = 0;
+        Serial.println("Reading Float type");
+      break;
+      case CH_TYPE_BOOL:
+        dataType = "Boolean";
+        replyIter = 0;
+        Serial.println("Reading Boolean type");
+      break;
+      case CH_TYPE_CUSTOM:
+        dataType = "Custom";
+        replyIter = 0;
+        Serial.println("Reading Custom type");
+      break;
+      case CH_TERMINATOR:
+        // terminate reply string
+        replyData[replyIter] = 0;
+        // print out reading to see what we got
+        Serial.print("Parsed reading: ");
+        Serial.print(replyData);
+        Serial.println();
+        // do something with the data buffer
+        //
+        // clear the data buffer
+        memset(replyData,0,sizeof(replyData));
+        replyIter = 0;
+      break;
+
+      default:
+        // append the character into the reply data array and increment replyIter
+        replyData[replyIter++] = c;
+      break;
+    }
+    // print out the entire reply for debug purposes
+    //if(c != NULL) {Serial.print(c);}
   }
   Serial.println();
 }
@@ -116,13 +163,12 @@ void loop()
     {
       blink();
       getSensorModuleReading(modules[i]);
-      testCount++;
+      sensorCount++;
     }
   }
   Serial.print("Read from ");
-  Serial.print(testCount);
+  Serial.print(sensorCount);
   Serial.println(" sensors");
-  testCount = 0;
+  sensorCount = 0;
   delay(UPDATE_INTERVAL);
 }
-  
