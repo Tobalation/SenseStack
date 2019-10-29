@@ -73,8 +73,8 @@ void scanDevices()
   delay(5000);
 }
 
-// helper function to request data from a sensor module
-void getSensorModuleReading(byte sensorAddr)
+// helper function to request data from a sensor module and add it to the JSON packet
+void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
 {
   // print out who we are communicating with
   Serial.print("Sending request to 0x");
@@ -88,42 +88,42 @@ void getSensorModuleReading(byte sensorAddr)
   Wire.requestFrom(sensorAddr, MAX_SENSOR_REPLY_LENGTH);
 
   char replyData[MAX_SENSOR_REPLY_LENGTH]= {0};
-  String dataType = "";
+  char lastSpecifier = 0;
+  String dataName = "";
+  String dataValue = "";
   uint8_t replyIter = 0;
 
   while (Wire.available())
   {
     char c = Wire.read();
     switch(c) {
-      case CH_TYPE_INT:
-        dataType = "Integer";
+      case CH_DATA_NAME:
+        lastSpecifier = c;
         replyIter = 0;
-        Serial.println("Reading Integer type");
+        Serial.print("Reading data name, ");
       break;
-      case CH_TYPE_FLOAT:
-        dataType = "Float";
+      case CH_DATA_BEGIN:
+        lastSpecifier = c;
         replyIter = 0;
-        Serial.println("Reading Float type");
-      break;
-      case CH_TYPE_BOOL:
-        dataType = "Boolean";
-        replyIter = 0;
-        Serial.println("Reading Boolean type");
-      break;
-      case CH_TYPE_CUSTOM:
-        dataType = "Custom";
-        replyIter = 0;
-        Serial.println("Reading Custom type");
+        Serial.print("Reading data value, ");
       break;
       case CH_TERMINATOR:
         // terminate reply string
         replyData[replyIter] = 0;
         // print out reading to see what we got
         Serial.print("Parsed reading: ");
-        Serial.print(replyData);
-        Serial.println();
-        // do something with the data buffer
-        //
+        Serial.println(replyData);
+        // put the parsed reading in the right string
+        if(lastSpecifier == CH_DATA_NAME)
+        {
+          dataName = String(replyData);
+        }
+        else if(lastSpecifier == CH_DATA_BEGIN)
+        {
+          dataValue = String(replyData);
+        }
+        // add data to JSON reply
+        dataObj[dataName] = dataValue;
         // clear the data buffer
         memset(replyData,0,sizeof(replyData));
         replyIter = 0;
@@ -134,10 +134,9 @@ void getSensorModuleReading(byte sensorAddr)
         replyData[replyIter++] = c;
       break;
     }
-    // print out the entire reply for debug purposes
+    // print out each char for debug purposes
     //if(c != NULL) {Serial.print(c);}
   }
-  Serial.println();
 }
 
 // -------------- Arduino framework main code -------------- //
@@ -156,19 +155,35 @@ void setup()
 
 void loop()
 {
+  // create JSON document
+  StaticJsonDocument<MAX_JSON_REPLY> jsonDoc;
+  String jsonReply = "";
+  jsonDoc["UUID"] = "TEST_UUID";
+  jsonDoc["Name"] = "TEST_NODE";
+  JsonObject dataObj = jsonDoc.createNestedObject("SensorData");
+
+  // obtain information from sensors
   Serial.println("Gathering sensor data.");
   for(int i = 0; i < MAX_SENSORS; i++)
   {
-    if(modules[i] != 0) //
+    if(modules[i] != 0)
     {
       blink();
-      getSensorModuleReading(modules[i]);
+      getSensorModuleReading(modules[i],dataObj);
       sensorCount++;
     }
   }
   Serial.print("Read from ");
   Serial.print(sensorCount);
   Serial.println(" sensors");
+
+  // serialize JSON reply string
+  serializeJson(jsonDoc,jsonReply);
+  // print out JSON output (for debug purposes)
+  Serial.println("Serialized data string:");
+  Serial.println(jsonReply);
+
+  // reset counter, wait and start again
   sensorCount = 0;
   delay(UPDATE_INTERVAL);
 }

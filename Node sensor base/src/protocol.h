@@ -4,6 +4,9 @@
 // Max number of chars in a sensor module reply.
 #define MAX_SENSOR_REPLY_LENGTH 32
 
+// JSON max reply length
+#define MAX_JSON_REPLY 256
+
 // Address range for sensor modules.
 #define TOP_ADDRESS 127
 
@@ -16,8 +19,6 @@
 #define SENSOR_LIGHT_UV 16
 
 // Data type macros
-#define CH_TYPE_INT 'i'
-#define CH_TYPE_FLOAT 'f'
-#define CH_TYPE_BOOL 'b'
-#define CH_TYPE_CUSTOM 'c'
-#define CH_TERMINATOR 't'
+#define CH_DATA_NAME '$'
+#define CH_TERMINATOR '^'
+#define CH_DATA_BEGIN '#'
