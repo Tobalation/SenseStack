@@ -17,6 +17,7 @@
 #define SENSOR_CO2_NO2 14
 #define SENSOR_GPS 15
 #define SENSOR_LIGHT_UV 16
+#define SENSOR_CO 17
 
 // Data type macros
 #define CH_DATA_NAME '$'

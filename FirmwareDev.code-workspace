@@ -9,6 +9,9 @@
 		},
 		{
 			"path": "Node sensor temp-humidity"
+		},
+		{
+			"path": "Node sensor CO"
 		}
 	],
 	"settings": {
