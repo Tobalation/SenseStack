@@ -11,21 +11,33 @@ byte SELF_ADDR = 126;
 MQ7 mq7(A0,5.0);
 float coPPM = 0.0;
 
-void blink() 
+void asyncBlink(unsigned long ms = 0)
 {
-  digitalWrite(LED_BUILTIN,HIGH);
-  delay(BLINK_TIME);
-  digitalWrite(LED_BUILTIN,LOW);
+  static unsigned long stopTime = 0;
+
+  if (ms)
+  {
+    stopTime = millis() + ms;
+    digitalWrite(LED_BUILTIN, HIGH);      
+  }
+  else
+  {
+    //Check whether is it time to turn off the LED.
+    if (millis() > stopTime)
+    { 
+      digitalWrite(LED_BUILTIN,LOW);
+    }
+  }
 }
 
 // function that executes whenever data is requested from master
 void sendData()
 {
-  blink();
   char replyData[MAX_SENSOR_REPLY_LENGTH];
   String reply = CH_DATA_NAME + String("CO") + CH_TERMINATOR + CH_DATA_BEGIN + String(coPPM) + CH_TERMINATOR;
   reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
   Wire.write(replyData); // send string on request
+  asyncBlink(BLINK_TIME);
 }
 
 // -------------- Arduino framework main code -------------- //
@@ -42,5 +54,4 @@ void loop()
 {
   delay(1000);
   coPPM = mq7.getPPM();
-  delay(50); // loop forever, waiting for commands
 }

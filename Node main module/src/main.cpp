@@ -4,29 +4,32 @@
 #include <AsyncDelay.h>
 #include "protocol.h"
 
-
 #define LED_BUILTIN 2
-#define UPDATE_INTERVAL 1500
+#define UPDATE_INTERVAL 5000
 #define BLINK_TIME 500
 
 byte sensorCount = 0;
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 
 AsyncDelay delay_sensor_update;
-AsyncDelay delay_LED_blink;
 
-//Blink LED Asynchronously 
+// Blink LED Asynchronously 
 // ms : Time for LED to lighten up (millisecond)
 // ms = 0 means checking whether the LED should be turned of or not.  
 void asyncBlink(unsigned long ms = 0)
 {
   static unsigned long stopTime = 0;
 
-  if (ms){
+  if (ms)
+  {
     stopTime = millis() + ms;
-    digitalWrite(LED_BUILTIN, LOW);      //LOW = LED lighten up on ESP 32 Lite board.
-  }else{
-    if (millis() > stopTime){            //Check whether is it time to turn off the LED.
+    digitalWrite(LED_BUILTIN, LOW); // LOW = LED lights up on ESP 32 Lite board.
+  }
+  else
+  {
+    // Check whether is it time to turn off the LED.
+    if (millis() > stopTime)
+    {            
       digitalWrite(LED_BUILTIN,HIGH); 
     }
   }
@@ -79,13 +82,12 @@ void scanDevices()
   }
   if (nDevices == 0)
   {
-    Serial.println("No modules are connected.\n");
+    Serial.println("No modules are connected.");
   }
   else
   {
-    Serial.println("Scan complete.\n");
+    Serial.println("Scan complete.");
   }
-  // delay(5000);
 }
 
 // helper function to request data from a sensor module and add it to the JSON packet
@@ -149,12 +151,11 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
         replyData[replyIter++] = c;
       break;
     }
-    // print out each char for debug purposes
-    //if(c != NULL) {Serial.print(c);}
   }
 }
 
-void fetchData(){
+void fetchData()
+{
 
   // create JSON document
   StaticJsonDocument<MAX_JSON_REPLY> jsonDoc;
@@ -169,11 +170,11 @@ void fetchData(){
   {
     if(modules[i] != 0)
     {
-      asyncBlink(500);
+      asyncBlink(BLINK_TIME);
       getSensorModuleReading(modules[i],dataObj);
       sensorCount++;
     }
-    asyncBlink();
+    asyncBlink(BLINK_TIME);
   }
   Serial.print("Read from ");
   Serial.print(sensorCount);
@@ -184,6 +185,7 @@ void fetchData(){
   // print out JSON output (for debug purposes)
   Serial.println("Serialized data string:");
   Serial.println(jsonReply);
+  Serial.println();
 
   // reset counter, wait and start again
   sensorCount = 0;
@@ -195,7 +197,7 @@ void setup()
 {
   delay(2000); // allow any slow modules to startup
   pinMode(LED_BUILTIN, OUTPUT);
-  asyncBlink(5000);
+  asyncBlink(BLINK_TIME);
 
   Serial.begin(9600);
   Wire.begin(); // join i2c bus as a master 
@@ -207,11 +209,12 @@ void setup()
 void loop()
 {
 
-  if(delay_sensor_update.isExpired()){
+  if(delay_sensor_update.isExpired())
+  {
     scanDevices();
     fetchData();
     delay_sensor_update.restart();
   }
 
-  asyncBlink(); //Handle LED Blink asynchronously 
+  asyncBlink(BLINK_TIME); //Handle LED Blink asynchronously 
 }
