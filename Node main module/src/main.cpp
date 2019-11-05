@@ -1,20 +1,35 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
+#include <AsyncDelay.h>
 #include "protocol.h"
 
+
 #define LED_BUILTIN 2
-#define UPDATE_INTERVAL 6000
+#define UPDATE_INTERVAL 1500
 #define BLINK_TIME 500
 
 byte sensorCount = 0;
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 
-void blink()
+AsyncDelay delay_sensor_update;
+AsyncDelay delay_LED_blink;
+
+//Blink LED Asynchronously 
+// ms : Time for LED to lighten up (millisecond)
+// ms = 0 means checking whether the LED should be turned of or not.  
+void asyncBlink(unsigned long ms = 0)
 {
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(BLINK_TIME);
-  digitalWrite(LED_BUILTIN,LOW);
+  static unsigned long stopTime = 0;
+
+  if (ms){
+    stopTime = millis() + ms;
+    digitalWrite(LED_BUILTIN, LOW);      //LOW = LED lighten up on ESP 32 Lite board.
+  }else{
+    if (millis() > stopTime){            //Check whether is it time to turn off the LED.
+      digitalWrite(LED_BUILTIN,HIGH); 
+    }
+  }
 }
 
 // helper function to scan connected modules on I2C bus
@@ -70,7 +85,7 @@ void scanDevices()
   {
     Serial.println("Scan complete.\n");
   }
-  delay(5000);
+  // delay(5000);
 }
 
 // helper function to request data from a sensor module and add it to the JSON packet
@@ -139,22 +154,8 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
   }
 }
 
-// -------------- Arduino framework main code -------------- //
+void fetchData(){
 
-void setup()
-{
-  delay(2000); // allow any slow modules to startup
-  pinMode(LED_BUILTIN, OUTPUT);
-  blink();
-  blink();
-  blink();
-  Serial.begin(9600);
-  Wire.begin(); // join i2c bus as a master 
-  scanDevices();
-}
-
-void loop()
-{
   // create JSON document
   StaticJsonDocument<MAX_JSON_REPLY> jsonDoc;
   String jsonReply = "";
@@ -168,10 +169,11 @@ void loop()
   {
     if(modules[i] != 0)
     {
-      blink();
+      asyncBlink(500);
       getSensorModuleReading(modules[i],dataObj);
       sensorCount++;
     }
+    asyncBlink();
   }
   Serial.print("Read from ");
   Serial.print(sensorCount);
@@ -185,5 +187,31 @@ void loop()
 
   // reset counter, wait and start again
   sensorCount = 0;
-  delay(UPDATE_INTERVAL);
+}
+
+// -------------- Arduino framework main code -------------- //
+
+void setup()
+{
+  delay(2000); // allow any slow modules to startup
+  pinMode(LED_BUILTIN, OUTPUT);
+  asyncBlink(5000);
+
+  Serial.begin(9600);
+  Wire.begin(); // join i2c bus as a master 
+
+  delay_sensor_update.start(UPDATE_INTERVAL,AsyncDelay::MILLIS);
+  scanDevices();
+}
+
+void loop()
+{
+
+  if(delay_sensor_update.isExpired()){
+    scanDevices();
+    fetchData();
+    delay_sensor_update.restart();
+  }
+
+  asyncBlink(); //Handle LED Blink asynchronously 
 }
