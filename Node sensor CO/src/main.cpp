@@ -54,4 +54,5 @@ void loop()
 {
   delay(1000);
   coPPM = mq7.getPPM();
+  asyncBlink();     //Handle asyn blink (Check LED Status periodically)
 }

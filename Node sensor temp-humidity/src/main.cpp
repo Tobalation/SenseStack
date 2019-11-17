@@ -59,4 +59,5 @@ void loop()
   humidity = dht.readHumidity();
   delay(100);
   temperature = dht.readTemperature();
+  asyncBlink();     //Handle asyn blink (Check LED Status periodically)
 }
