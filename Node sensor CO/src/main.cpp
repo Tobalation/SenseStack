@@ -6,7 +6,7 @@
 
 #define BLINK_TIME 500
 
-byte SELF_ADDR = 126;
+byte SELF_ADDR = SENSOR_CO;
 
 MQ7 mq7(A0,5.0);
 float coPPM = 0.0;
