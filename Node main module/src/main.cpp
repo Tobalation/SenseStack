@@ -1,19 +1,65 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <ArduinoJson.h>
 #include <AsyncDelay.h>
+
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
+
 #include "protocol.h"
 
 #define LED_BUILTIN 2
-#define UPDATE_INTERVAL 5000
+#define DEFAULT_UPDATE_INTERVAL 10000
 #define BLINK_TIME 500
 
-byte sensorCount = 0;
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
+AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
 
-AsyncDelay delay_sensor_update;
+String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
 
-// Blink LED Asynchronously 
+const char* ssid = "TestModule";
+const char* password = "12345678";
+IPAddress local_ip(192,168,1,1);
+IPAddress gateway(192,168,1,1);
+IPAddress subnet(255,255,255,0);
+AsyncWebServer server(80);
+
+// -------------- Web functions -------------- //
+
+// write status page HTML, TODO: put HTML in PROGMEM
+String SendStatus()
+{
+  // refer to testPage.html in src
+  String html = "<!DOCTYPE html><html>\n";
+  html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
+  html +="<title>Main Module Status</title>\n";
+  html +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
+  html +="body {margin-top: 50px;}h1 {color: #444444;margin: 50px auto 30px;}h2 {color: #707070;margin: 50px auto 30px;}h3 {color: #444444;margin-bottom: 50px;}\n";
+  html +="</style>\n";
+  html +="</head>\n";
+
+  html +="<body>\n";
+  html +="<h1>Main Module Status Page</h1>\n";
+  html +="<h2>Current data string</h2>\n";
+  html +="<h3>" + currentJSONReply + "</h3>\n";
+  html +="<h2>Current up time</h2>\n";
+  html +="<h3>" + String(millis()) + "</h3>\n";
+  html +="</body>\n";
+
+  html +="</html>\n";
+  return html;
+}
+
+// handle 404
+void handle_NotFound(AsyncWebServerRequest *request)
+{
+  request->send(404);
+}
+
+// -------------- Helper functions -------------- //
+
+// helper function to make LED blink asynchronously 
 // ms : Time for LED to lighten up (millisecond)
 // ms = 0 means checking whether the LED should be turned of or not.  
 void asyncBlink(unsigned long ms = 0)
@@ -154,12 +200,14 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
   }
 }
 
+// helper function to request data from all connected modules and create a JSON object
 void fetchData()
 {
+  byte sensorCount = 0;
 
   // create JSON document
   StaticJsonDocument<MAX_JSON_REPLY> jsonDoc;
-  String jsonReply = "";
+  currentJSONReply = "";
   jsonDoc["UUID"] = "TEST_UUID";
   jsonDoc["Name"] = "TEST_NODE";
   JsonObject dataObj = jsonDoc.createNestedObject("SensorData");
@@ -181,40 +229,56 @@ void fetchData()
   Serial.println(" sensors");
 
   // serialize JSON reply string
-  serializeJson(jsonDoc,jsonReply);
+  serializeJson(jsonDoc,currentJSONReply);
   // print out JSON output (for debug purposes)
   Serial.println("Serialized data string:");
-  Serial.println(jsonReply);
-  Serial.println();
-
-  // reset counter, wait and start again
-  sensorCount = 0;
+  Serial.println(currentJSONReply);
+  Serial.println("Saved JSON to string.\n");
 }
 
 // -------------- Arduino framework main code -------------- //
 
 void setup()
 {
-  delay(2000); // allow any slow modules to startup
   pinMode(LED_BUILTIN, OUTPUT);
-  asyncBlink(BLINK_TIME);
-
   Serial.begin(9600);
-  Wire.begin(); // join i2c bus as a master 
+  Wire.begin(); 
 
-  delay_sensor_update.start(UPDATE_INTERVAL,AsyncDelay::MILLIS);
+  delay_sensor_update.start(DEFAULT_UPDATE_INTERVAL,AsyncDelay::MILLIS);
   scanDevices();
+
+  // setup AP
+  WiFi.enableAP(true);
+  delay(100);
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  WiFi.softAP(ssid, password);
+  
+  Serial.println("AP started.");
+  delay(500);
+  
+  // attach handlers
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", SendStatus());
+  });
+  server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", "This has not been implemented yet.");
+  });
+  server.onNotFound(handle_NotFound);
+  // start async server
+  server.begin();
+  Serial.println("Server started.");
+  Serial.print("IP");
+  Serial.println(WiFi.softAPIP());
 }
 
 void loop()
 {
-
+  // data update loop
   if(delay_sensor_update.isExpired())
   {
     scanDevices();
     fetchData();
     delay_sensor_update.restart();
   }
-
-  asyncBlink(BLINK_TIME); //Handle LED Blink asynchronously 
+  asyncBlink(BLINK_TIME);
 }
