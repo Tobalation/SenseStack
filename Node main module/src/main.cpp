@@ -3,7 +3,8 @@
 #include <AsyncDelay.h>
 
 #include <WiFi.h>
-#include <AsyncTCP.h>
+#include <HTTPClient.h>
+#include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 
@@ -15,19 +16,38 @@
 
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
+unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 
 String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
 
-const char* ssid = "TestModule";
-const char* password = "12345678";
-IPAddress local_ip(192,168,1,1);
-IPAddress gateway(192,168,1,1);
-IPAddress subnet(255,255,255,0);
 AsyncWebServer server(80);
+
+// -------------- Helper functions -------------- //
+
+// helper function to make LED blink asynchronously
+// ms : Time for LED to lighten up (millisecond)
+// ms = 0 means checking whether the LED should be turned of or not.  
+void asyncBlink(unsigned long ms = 0)
+{
+  static unsigned long stopTime = 0;
+  if (ms)
+  {
+    stopTime = millis() + ms;
+    digitalWrite(LED_BUILTIN, LOW); // LOW = LED lights up on ESP 32 Lite board.
+  }
+  else
+  {
+    // Check whether is it time to turn off the LED.
+    if (millis() > stopTime)
+    {            
+      digitalWrite(LED_BUILTIN,HIGH); 
+    }
+  }
+}
 
 // -------------- Web functions -------------- //
 
-// write status page HTML, TODO: put HTML in PROGMEM
+// write status page HTML
 String SendStatus()
 {
   // refer to testPage.html in src
@@ -43,43 +63,38 @@ String SendStatus()
   html +="<h1>Main Module Status Page</h1>\n";
   html +="<h2>Current data string</h2>\n";
   html +="<h3>" + currentJSONReply + "</h3>\n";
-  html +="<h2>Current up time</h2>\n";
-  html +="<h3>" + String(millis()) + "</h3>\n";
+  html +="<h2>Current up time (seconds)</h2>\n";
+  html +="<h3>" + String(millis() / 1000) + "</h3>\n";
   html +="</body>\n";
 
   html +="</html>\n";
   return html;
 }
 
+String SendRedirect()
+{
+  String html = "<!DOCTYPE html><html>\n";
+  html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
+  html +="<title>Page not found</title></head>\n";
+  html +="<body>\n";
+  html +="<p>This link does not exist. <a href='/status'>Click here for the status page.</a>.</p>\n";
+  html +="</body>\n";
+  html +="</html>\n";
+  return html;
+}
+
+void handle_Status(AsyncWebServerRequest *request)
+{
+  request->send(200, "text/html", SendStatus());
+}
+
 // handle 404
 void handle_NotFound(AsyncWebServerRequest *request)
 {
-  request->send(404);
+  request->send(404, "text/html", SendRedirect());
 }
 
-// -------------- Helper functions -------------- //
-
-// helper function to make LED blink asynchronously 
-// ms : Time for LED to lighten up (millisecond)
-// ms = 0 means checking whether the LED should be turned of or not.  
-void asyncBlink(unsigned long ms = 0)
-{
-  static unsigned long stopTime = 0;
-
-  if (ms)
-  {
-    stopTime = millis() + ms;
-    digitalWrite(LED_BUILTIN, LOW); // LOW = LED lights up on ESP 32 Lite board.
-  }
-  else
-  {
-    // Check whether is it time to turn off the LED.
-    if (millis() > stopTime)
-    {            
-      digitalWrite(LED_BUILTIN,HIGH); 
-    }
-  }
-}
+// -------------- Sensor Module functions -------------- //
 
 // helper function to scan connected modules on I2C bus
 void scanDevices()
@@ -240,35 +255,40 @@ void fetchData()
 
 void setup()
 {
+  // init serial, I2C and status LED
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(9600);
   Wire.begin(); 
 
-  delay_sensor_update.start(DEFAULT_UPDATE_INTERVAL,AsyncDelay::MILLIS);
-  scanDevices();
+  // start the wifi manager to config
+  WiFi.mode(WIFI_STA);  
+  WiFiManager wm;
+  bool res;
+  res = wm.autoConnect("MainModuleAP","12345678");
 
-  // setup AP
-  WiFi.enableAP(true);
-  delay(100);
-  WiFi.softAPConfig(local_ip, gateway, subnet);
-  WiFi.softAP(ssid, password);
-  
-  Serial.println("AP started.");
-  delay(500);
-  
-  // attach handlers
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "text/html", SendStatus());
-  });
-  server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "text/html", "This has not been implemented yet.");
-  });
-  server.onNotFound(handle_NotFound);
-  // start async server
-  server.begin();
-  Serial.println("Server started.");
-  Serial.print("IP");
-  Serial.println(WiFi.softAPIP());
+  if(!res)
+  {
+      // failed to connect to WLAN, try again
+      Serial.println("Failed to connect, rebooting.");
+      ESP.restart();
+  } 
+  else
+  { 
+    // connected to WLAN successfully, initialize everything else
+    Serial.println("Connection established.");
+    // perform initial device scan
+    scanDevices();
+    delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
+    // attach handlers
+    server.on("/status", HTTP_GET, handle_Status);
+    server.onNotFound(handle_NotFound);
+    // start async server
+    server.begin();
+    Serial.println("\nServer started.");
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.println();
+  }  
 }
 
 void loop()
