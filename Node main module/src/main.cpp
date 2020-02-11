@@ -4,8 +4,8 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <WiFiManager.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
+#include <AutoConnect.h>
 #include <ArduinoJson.h>
 
 #include "protocol.h"
@@ -17,10 +17,11 @@
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
-
 String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
 
-AsyncWebServer server(80);
+WebServer server;
+AutoConnect Portal(server);
+AutoConnectConfig portalConfig("MainModuleAP","12345678");
 
 // -------------- Helper functions -------------- //
 
@@ -47,8 +48,8 @@ void asyncBlink(unsigned long ms = 0)
 
 // -------------- Web functions -------------- //
 
-// write status page HTML
-String SendStatus()
+// status page HTML
+String StatusPage()
 {
   // refer to testPage.html in src
   String html = "<!DOCTYPE html><html>\n";
@@ -58,40 +59,42 @@ String SendStatus()
   html +="body {margin-top: 50px;}h1 {color: #444444;margin: 50px auto 30px;}h2 {color: #707070;margin: 50px auto 30px;}h3 {color: #444444;margin-bottom: 50px;}\n";
   html +="</style>\n";
   html +="</head>\n";
-
   html +="<body>\n";
-  html +="<h1>Main Module Status Page</h1>\n";
+  html +="<h1>Sensor module status page</h1>\n";
   html +="<h2>Current data string</h2>\n";
   html +="<h3>" + currentJSONReply + "</h3>\n";
   html +="<h2>Current up time (seconds)</h2>\n";
   html +="<h3>" + String(millis() / 1000) + "</h3>\n";
+  html +="<p><a href='/_ac'>config page.</a>.</p>\n";
   html +="</body>\n";
-
   html +="</html>\n";
   return html;
 }
 
-String SendRedirect()
+// 404 page HTML
+String RedirectPage()
 {
   String html = "<!DOCTYPE html><html>\n";
   html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   html +="<title>Page not found</title></head>\n";
   html +="<body>\n";
   html +="<p>This link does not exist. <a href='/status'>Click here for the status page.</a>.</p>\n";
+  html +="<p><a href='/_ac'>Click here for the config page.</a>.</p>\n";
   html +="</body>\n";
   html +="</html>\n";
   return html;
 }
 
-void handle_Status(AsyncWebServerRequest *request)
+// show status
+void handle_Status()
 {
-  request->send(200, "text/html", SendStatus());
+  server.send(200, "text/html", StatusPage());
 }
 
 // handle 404
-void handle_NotFound(AsyncWebServerRequest *request)
+void handle_NotFound()
 {
-  request->send(404, "text/html", SendRedirect());
+  server.send(404, "text/html", RedirectPage());
 }
 
 // -------------- Sensor Module functions -------------- //
@@ -260,39 +263,43 @@ void setup()
   Serial.begin(9600);
   Wire.begin(); 
 
-  // start the wifi manager to config
-  WiFi.mode(WIFI_STA);  
-  WiFiManager wm;
-  bool res;
-  res = wm.autoConnect("MainModuleAP","12345678");
+  // attach handlers
+  server.on("/status", HTTP_GET, handle_Status);
 
-  if(!res)
+  portalConfig.title = "Main Module";
+  portalConfig.hostName = "mainModule";
+  portalConfig.apip = IPAddress(192,168,1,1);
+  portalConfig.gateway = IPAddress(192,168,1,1);
+  portalConfig.bootUri = AC_ONBOOTURI_ROOT;
+  Portal.config(portalConfig);
+  Portal.home("/status");
+  Portal.onNotFound(handle_NotFound);
+  
+  if(Portal.begin())
   {
-      // failed to connect to WLAN, try again
-      Serial.println("Failed to connect, rebooting.");
-      ESP.restart();
-  } 
-  else
-  { 
-    // connected to WLAN successfully, initialize everything else
-    Serial.println("Connection established.");
-    // perform initial device scan
-    scanDevices();
-    delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
-    // attach handlers
-    server.on("/status", HTTP_GET, handle_Status);
-    server.onNotFound(handle_NotFound);
-    // start async server
-    server.begin();
-    Serial.println("\nServer started.");
+    Serial.println("\nNetworking started.");
     Serial.print("IP: ");
     Serial.println(WiFi.localIP());
     Serial.println();
-  }  
+  }
+  else
+  {
+    Serial.println("Connection failed, rebooting.");
+    ESP.restart();
+  }
+
+  // perform initial device scan
+  Serial.println("Performing initial device scan.");
+  scanDevices();
+  delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
 }
 
 void loop()
 {
+  // handle web UI
+  server.handleClient();
+  Portal.handleRequest();
+
   // data update loop
   if(delay_sensor_update.isExpired())
   {
