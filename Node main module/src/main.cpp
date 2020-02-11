@@ -18,10 +18,21 @@ byte modules[MAX_SENSORS];  // array with address listings of connected sensor m
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
+// TODO: save string to SPIFFS, EEPROM would conflict with credentials storage
+String currentEndPoint = "https://examplegisdb.com/api/v1/"; // endpoint URL string
 
-WebServer server;
-AutoConnect Portal(server);
+WebServer server; // HTTP server to serve web UI
+AutoConnect Portal(server); // AutoConnect handler object
 AutoConnectConfig portalConfig("MainModuleAP","12345678");
+
+// TODO: make pages JSON strings in PROGMEM
+// see https://hieromon.github.io/AutoConnect/achandling.html#transfer-of-input-values-across-pages for example
+// Endpoint config menu
+AutoConnectText header("header","Data endpoint configuration");
+AutoConnectText caption("caption","Enter the URL of the destination that you wish to send data to.");
+AutoConnectInput urlinput("urlinput","","URL","Endpoint URL");
+AutoConnectSubmit saveurl("saveurl","Save","/ep_save");
+AutoConnectAux endpointConfigPage("/epconfig","Endpoint configuration",true,{header,caption,urlinput,saveurl});
 
 // -------------- Helper functions -------------- //
 
@@ -48,6 +59,7 @@ void asyncBlink(unsigned long ms = 0)
 
 // -------------- Web functions -------------- //
 
+// TODO: put pages in PROGMEM or SPIFFS for better space efficiency
 // status page HTML
 String StatusPage()
 {
@@ -63,9 +75,11 @@ String StatusPage()
   html +="<h1>Sensor module status page</h1>\n";
   html +="<h2>Current data string</h2>\n";
   html +="<h3>" + currentJSONReply + "</h3>\n";
+  html +="<h2>Current endpoint URL</h2>\n";
+  html +="<h3>" + currentEndPoint + "</h3>\n";
   html +="<h2>Current up time (seconds)</h2>\n";
   html +="<h3>" + String(millis() / 1000) + "</h3>\n";
-  html +="<p><a href='/_ac'>config page.</a>.</p>\n";
+  html +="<p><a href='/_ac'>Main page</a></p>\n";
   html +="</body>\n";
   html +="</html>\n";
   return html;
@@ -77,9 +91,11 @@ String RedirectPage()
   String html = "<!DOCTYPE html><html>\n";
   html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   html +="<title>Page not found</title></head>\n";
+  html +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}</style>\n";
   html +="<body>\n";
-  html +="<p>This link does not exist. <a href='/status'>Click here for the status page.</a>.</p>\n";
-  html +="<p><a href='/_ac'>Click here for the config page.</a>.</p>\n";
+  html +="<h1>404</h1>\n";
+  html +="<p>This page does not exist.</p>\n";
+  html +="<p><a href='/_ac'>Return to main page</a></p>\n";
   html +="</body>\n";
   html +="</html>\n";
   return html;
@@ -96,6 +112,17 @@ void handle_NotFound()
 {
   server.send(404, "text/html", RedirectPage());
 }
+
+// save the endpoint string
+void handle_SaveEndpoint()
+{
+  String newurl = server.arg("urlinput");
+  currentEndPoint = newurl;
+  Serial.println("Saved new end point URL as " + currentEndPoint);
+  server.sendHeader("Location", "/status",true); // redirect to home
+  server.send(302, "text/plain",""); 
+}
+
 
 // -------------- Sensor Module functions -------------- //
 
@@ -165,7 +192,7 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
   }
   Serial.println(sensorAddr, HEX);
 
-  // begin transmission
+  // begin i2c transmission
   Wire.requestFrom(sensorAddr, MAX_SENSOR_REPLY_LENGTH);
 
   char replyData[MAX_SENSOR_REPLY_LENGTH]= {0};
@@ -264,17 +291,22 @@ void setup()
   Wire.begin(); 
 
   // attach handlers
-  server.on("/status", HTTP_GET, handle_Status);
+  server.on("/status", handle_Status);
+  server.on("/", handle_Status);
+  server.on("/ep_save", handle_SaveEndpoint);
 
-  portalConfig.title = "Main Module";
-  portalConfig.hostName = "mainModule";
+  // setup the web UI
+  portalConfig.title = "Main Module v1.0";
+  portalConfig.apid = "MainModule-" + String((uint32_t)(ESP.getEfuseMac() >> 32), HEX);
   portalConfig.apip = IPAddress(192,168,1,1);
   portalConfig.gateway = IPAddress(192,168,1,1);
   portalConfig.bootUri = AC_ONBOOTURI_ROOT;
   Portal.config(portalConfig);
   Portal.home("/status");
   Portal.onNotFound(handle_NotFound);
+  Portal.join({endpointConfigPage});
   
+  // initialize the web UI
   if(Portal.begin())
   {
     Serial.println("\nNetworking started.");
