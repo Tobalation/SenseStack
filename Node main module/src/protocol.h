@@ -1,3 +1,5 @@
+//TODO: Update protocol to support multiple data transmissions from a single module (length>32 transmissions).
+
 // Maximum number of connected sensors for a module.
 #define MAX_SENSORS 10
 

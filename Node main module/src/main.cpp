@@ -11,7 +11,7 @@
 #include "protocol.h"
 
 #define LED_BUILTIN 2
-#define DEFAULT_UPDATE_INTERVAL 10000
+#define DEFAULT_UPDATE_INTERVAL 20000
 #define BLINK_TIME 500
 
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
@@ -19,7 +19,8 @@ AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
 // TODO: save string to SPIFFS, EEPROM would conflict with credentials storage
-String currentEndPoint = "https://examplegisdb.com/api/v1/"; // endpoint URL string
+String currentEndPoint = "https://yourgisdb.com/apiforposting/"; // endpoint URL string
+String lastPOSTreply = "N/A"; // string to save last POST status reply
 
 WebServer server; // HTTP server to serve web UI
 AutoConnect Portal(server); // AutoConnect handler object
@@ -28,11 +29,14 @@ AutoConnectConfig portalConfig("MainModuleAP","12345678");
 // TODO: make pages JSON strings in PROGMEM
 // see https://hieromon.github.io/AutoConnect/achandling.html#transfer-of-input-values-across-pages for example
 // Endpoint config menu
-AutoConnectText header("header","Data endpoint configuration");
+AutoConnectText header("header","<h2>Data endpoint configuration<h2>","padding:10px");
 AutoConnectText caption("caption","Enter the URL of the destination that you wish to send data to.");
-AutoConnectInput urlinput("urlinput","","URL","Endpoint URL");
-AutoConnectSubmit saveurl("saveurl","Save","/ep_save");
-AutoConnectAux endpointConfigPage("/epconfig","Endpoint configuration",true,{header,caption,urlinput,saveurl});
+AutoConnectInput urlInput("urlInput","","URL","","Endpoint URL");
+AutoConnectText header2("header2","<h2>Update interval configuration<h2>","padding:10px");
+AutoConnectText caption2("caption2","Enter the time for each update interval. Updating this value will restart the timer.");
+AutoConnectInput intervalInput("intervalInput",String(DEFAULT_UPDATE_INTERVAL).c_str(),"Update Interval (ms)","","ms");
+AutoConnectSubmit save("save","Save","/ep_save");
+AutoConnectAux endpointConfigPage("/epconfig","Module configuration",true,{header,caption,urlInput,header2,caption2,intervalInput,save});
 
 // -------------- Helper functions -------------- //
 
@@ -72,11 +76,15 @@ String StatusPage()
   html +="</style>\n";
   html +="</head>\n";
   html +="<body>\n";
-  html +="<h1>Sensor module status page</h1>\n";
-  html +="<h2>Current data string</h2>\n";
+  html +="<h1>Current Module Status</h1>\n";
+  html +="<h2>Latest data string</h2>\n";
   html +="<h3>" + currentJSONReply + "</h3>\n";
   html +="<h2>Current endpoint URL</h2>\n";
   html +="<h3>" + currentEndPoint + "</h3>\n";
+  html +="<h2>Last end point reply</h2>\n";
+  html +="<h3>" + lastPOSTreply + "</h3>\n";
+  html +="<h2>Current update interval (milliseconds)</h2>\n";
+  html +="<h3>" + String(currentUpdateRate) + "</h3>\n";
   html +="<h2>Current up time (seconds)</h2>\n";
   html +="<h3>" + String(millis() / 1000) + "</h3>\n";
   html +="<p><a href='/_ac'>Main page</a></p>\n";
@@ -116,11 +124,56 @@ void handle_NotFound()
 // save the endpoint string
 void handle_SaveEndpoint()
 {
-  String newurl = server.arg("urlinput");
+  // get args from server and save them to control variables
+  String newurl = server.arg("urlInput");
   currentEndPoint = newurl;
+  unsigned long newinterval = server.arg("intervalInput").toInt();
+  currentUpdateRate = newinterval;
   Serial.println("Saved new end point URL as " + currentEndPoint);
-  server.sendHeader("Location", "/status",true); // redirect to home
+  Serial.println("Saved new update rate to be " + String(currentUpdateRate) + " ms");
+
+  // reset update intveral
+  if(delay_sensor_update.isExpired())
+  {
+    delay_sensor_update.restart();
+  }
+  delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
+
+  // redirect back to main page after saving
+  server.sendHeader("Location", "/status",true);
   server.send(302, "text/plain",""); 
+}
+
+// POST latest JSON string to current URL endpoint
+void sendDataToEndpoint()
+{
+  Serial.println("Sending data to " + currentEndPoint);  
+ 
+  HTTPClient http;   
+  http.begin(currentEndPoint);
+  http.addHeader("Content-Type", "application/json");
+
+  int httpResponseCode = http.POST(currentJSONReply);
+  String response = http.getString();
+  lastPOSTreply = "Code: ";
+  lastPOSTreply += httpResponseCode;
+  lastPOSTreply += " ";
+  lastPOSTreply += http.errorToString(httpResponseCode);
+  lastPOSTreply += " Reply: ";
+  lastPOSTreply += response;
+
+  if(httpResponseCode > 0)
+  {
+    Serial.println("Response from server:");
+    Serial.println(http.errorToString(httpResponseCode));
+    Serial.println(response);
+  }
+  else
+  {
+    Serial.print("Error on sending POST: ");
+    Serial.println(http.errorToString(httpResponseCode));
+  }
+  http.end();
 }
 
 
@@ -337,6 +390,10 @@ void loop()
   {
     scanDevices();
     fetchData();
+    if(currentJSONReply != NULL || currentJSONReply != "")
+    {
+      sendDataToEndpoint();
+    }
     delay_sensor_update.restart();
   }
   asyncBlink(BLINK_TIME);
