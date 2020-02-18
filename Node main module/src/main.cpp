@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <SPIFFS.h>
+
 #include <AsyncDelay.h>
 
 #include <WiFi.h>
@@ -11,16 +13,20 @@
 #include "protocol.h"
 
 #define LED_BUILTIN 2
-#define DEFAULT_UPDATE_INTERVAL 20000
+#define DEFAULT_UPDATE_INTERVAL 30000
 #define BLINK_TIME 500
+#define SETTINGS_FILE "/settings.txt"
 
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
-unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
+
 String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
-// TODO: save string to SPIFFS, EEPROM would conflict with credentials storage
-String currentEndPoint = "https://yourgisdb.com/apiforposting/"; // endpoint URL string
 String lastPOSTreply = "N/A"; // string to save last POST status reply
+
+String nodeName = "MainModule";
+String nodeUUID = "1234567890";
+String currentEndPoint = "https://yourgisdb.com/apiforposting/";
+unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 
 WebServer server; // HTTP server to serve web UI
 AutoConnect Portal(server); // AutoConnect handler object
@@ -29,14 +35,18 @@ AutoConnectConfig portalConfig("MainModuleAP","12345678");
 // TODO: make pages JSON strings in PROGMEM
 // see https://hieromon.github.io/AutoConnect/achandling.html#transfer-of-input-values-across-pages for example
 // Endpoint config menu
-AutoConnectText header("header","<h2>Data endpoint configuration<h2>","padding:10px");
-AutoConnectText caption("caption","Enter the URL of the destination that you wish to send data to.");
+AutoConnectText header0("header0","<h2>Node configuration<h2>","padding:10px");
+AutoConnectText caption0("caption0","Name and UUID identifier for this node.");
+AutoConnectInput nameInput("nameInput","","Node name","","");
+AutoConnectInput uuidInput("uuidInput","","UUID","","");
+AutoConnectText header1("header1","<h2>Data endpoint configuration<h2>","padding:10px");
+AutoConnectText caption1("caption1","Enter the URL of the destination that you wish to send data to.");
 AutoConnectInput urlInput("urlInput","","URL","","Endpoint URL");
 AutoConnectText header2("header2","<h2>Update interval configuration<h2>","padding:10px");
 AutoConnectText caption2("caption2","Enter the time for each update interval. Updating this value will restart the timer.");
 AutoConnectInput intervalInput("intervalInput",String(DEFAULT_UPDATE_INTERVAL).c_str(),"Update Interval (ms)","","ms");
-AutoConnectSubmit save("save","Save","/ep_save");
-AutoConnectAux endpointConfigPage("/epconfig","Module configuration",true,{header,caption,urlInput,header2,caption2,intervalInput,save});
+AutoConnectSubmit save("save","Save","/save_settings");
+AutoConnectAux endpointConfigPage("/epconfig","Module configuration",true,{header0,caption0,nameInput,uuidInput,header1,caption1,urlInput,header2,caption2,intervalInput,save});
 
 // -------------- Helper functions -------------- //
 
@@ -61,6 +71,53 @@ void asyncBlink(unsigned long ms = 0)
   }
 }
 
+// helper function to write settings to file in SPIFFS.
+void saveSettings()
+{
+  File settingsFile = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
+  if(!settingsFile)
+  {
+    Serial.println("Failed to open file stream. Save failed.");
+    return;
+  }
+  settingsFile.println(nodeUUID);
+  settingsFile.println(nodeName);
+  settingsFile.println(currentEndPoint);
+  settingsFile.println(currentUpdateRate);
+  Serial.println("Wrote existing settings to save file.");
+  settingsFile.close();
+}
+
+// helper function to load settings from save file in SPIFFS.
+void loadSettings()
+{
+  File settingsFile = SPIFFS.open(SETTINGS_FILE, FILE_READ);
+  if(!settingsFile) // settings file does not exist, set everything to default.
+  {
+    Serial.println("Settings file does not exist or could not be opened. Creating new setings file.");
+    File newSettingsFile = SPIFFS.open(SETTINGS_FILE,FILE_WRITE);
+    newSettingsFile.println(nodeUUID);
+    newSettingsFile.println(nodeName);
+    newSettingsFile.println(currentEndPoint);
+    newSettingsFile.println(currentUpdateRate);
+    Serial.println("Wrote default settings to file.");
+    newSettingsFile.close();
+  }
+  else // read existing settings
+  {
+    Serial.println("Reading existing settings from file.");
+    nodeUUID = settingsFile.readStringUntil('\n');
+    nodeName = settingsFile.readStringUntil('\n');
+    currentEndPoint = settingsFile.readStringUntil('\n');
+    currentUpdateRate = settingsFile.readStringUntil('\n').toInt();
+    Serial.println("Read UUID: " + nodeUUID);
+    Serial.println("Read Name: " + nodeName);
+    Serial.println("Read EndPoint: " + currentEndPoint);
+    Serial.println("Read UpdateRate: " + currentUpdateRate);
+  }
+  settingsFile.close();
+}
+
 // -------------- Web functions -------------- //
 
 // TODO: put pages in PROGMEM or SPIFFS for better space efficiency
@@ -76,7 +133,7 @@ String StatusPage()
   html +="</style>\n";
   html +="</head>\n";
   html +="<body>\n";
-  html +="<h1>Current Module Status</h1>\n";
+  html +="<h1>" + nodeName + ", " + nodeUUID + " Status</h1>\n";
   html +="<h2>Latest data string</h2>\n";
   html +="<h3>" + currentJSONReply + "</h3>\n";
   html +="<h2>Current endpoint URL</h2>\n";
@@ -121,23 +178,39 @@ void handle_NotFound()
   server.send(404, "text/html", RedirectPage());
 }
 
-// save the endpoint string
-void handle_SaveEndpoint()
+// save the new settings from config page
+void handle_SaveSettings()
 {
-  // get args from server and save them to control variables
+  // get args from server and save them to setting variables
   String newurl = server.arg("urlInput");
   currentEndPoint = newurl;
+
   unsigned long newinterval = server.arg("intervalInput").toInt();
-  currentUpdateRate = newinterval;
+  if(currentUpdateRate != newinterval)
+  {
+    currentUpdateRate = newinterval;
+
+    // reset update interval
+    if(delay_sensor_update.isExpired())
+    {
+      delay_sensor_update.restart();
+    }
+    delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
+  }
+
+  String newName = server.arg("nameInput");
+  nodeName = newName;
+
+  String newUUID = server.arg("uuidInput");
+  nodeUUID = newUUID;
+
+  // save settings to file
+  saveSettings();
+
   Serial.println("Saved new end point URL as " + currentEndPoint);
   Serial.println("Saved new update rate to be " + String(currentUpdateRate) + " ms");
-
-  // reset update intveral
-  if(delay_sensor_update.isExpired())
-  {
-    delay_sensor_update.restart();
-  }
-  delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
+  Serial.println("Node name changed to " + nodeName);
+  Serial.println("Node UUID changed to " + nodeUUID);
 
   // redirect back to main page after saving
   server.sendHeader("Location", "/status",true);
@@ -306,9 +379,9 @@ void fetchData()
   // create JSON document
   StaticJsonDocument<MAX_JSON_REPLY> jsonDoc;
   currentJSONReply = "";
-  jsonDoc["UUID"] = "TEST_UUID";
-  jsonDoc["Name"] = "TEST_NODE";
-  JsonObject dataObj = jsonDoc.createNestedObject("SensorData");
+  jsonDoc["UUID"] = nodeUUID;
+  jsonDoc["Name"] = nodeName;
+  JsonObject dataObj = jsonDoc.createNestedObject("Data");
 
   // obtain information from sensors
   Serial.println("Gathering sensor data.");
@@ -338,15 +411,22 @@ void fetchData()
 
 void setup()
 {
-  // init serial, I2C and status LED
+  // init serial, I2C, SPIFFS and status LED
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(9600);
-  Wire.begin(); 
+  Wire.begin();
+
+  if(!SPIFFS.begin(true)){
+      Serial.println("An Error has occurred while mounting SPIFFS. Rebooting.");
+      ESP.restart();
+  }
+  // load settings on boot
+  loadSettings();
 
   // attach handlers
   server.on("/status", handle_Status);
   server.on("/", handle_Status);
-  server.on("/ep_save", handle_SaveEndpoint);
+  server.on("/save_settings", handle_SaveSettings);
 
   // setup the web UI
   portalConfig.title = "Main Module v1.0";
