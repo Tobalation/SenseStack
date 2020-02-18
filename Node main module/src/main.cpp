@@ -487,9 +487,10 @@ void loop()
   {
     scanDevices();
     fetchData();
-    if(currentJSONReply != NULL || currentJSONReply != "")
+    if((currentJSONReply != NULL || currentJSONReply != "") && (WiFi.status() != WL_IDLE_STATUS) && (WiFi.status() != WL_DISCONNECTED))
     {
-      sendDataToEndpoint();
+      if(WiFi.getMode() == WIFI_MODE_STA)
+        sendDataToEndpoint();
     }
     delay_sensor_update.restart();
   }
