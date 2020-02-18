@@ -46,7 +46,7 @@ AutoConnectText header2("header2","<h2>Update interval configuration<h2>","paddi
 AutoConnectText caption2("caption2","Enter the time for each update interval. Updating this value will restart the timer.");
 AutoConnectInput intervalInput("intervalInput",String(DEFAULT_UPDATE_INTERVAL).c_str(),"Update Interval (ms)","","ms");
 AutoConnectSubmit save("save","Save","/save_settings");
-AutoConnectAux endpointConfigPage("/epconfig","Module configuration",true,{header0,caption0,nameInput,uuidInput,header1,caption1,urlInput,header2,caption2,intervalInput,save});
+AutoConnectAux endpointConfigPage("/moduleconfig","Module configuration",true,{header0,caption0,nameInput,uuidInput,header1,caption1,urlInput,header2,caption2,intervalInput,save});
 
 // -------------- Helper functions -------------- //
 
@@ -92,7 +92,7 @@ void saveSettings()
 void loadSettings()
 {
   File settingsFile = SPIFFS.open(SETTINGS_FILE, FILE_READ);
-  if(!settingsFile) // settings file does not exist, set everything to default.
+  if(!SPIFFS.exists(SETTINGS_FILE) || !settingsFile) // settings file does not exist, set everything to default.
   {
     Serial.println("Settings file does not exist or could not be opened. Creating new setings file.");
     File newSettingsFile = SPIFFS.open(SETTINGS_FILE,FILE_WRITE);
@@ -105,15 +105,18 @@ void loadSettings()
   }
   else // read existing settings
   {
-    Serial.println("Reading existing settings from file.");
-    nodeUUID = settingsFile.readStringUntil('\n');
-    nodeName = settingsFile.readStringUntil('\n');
-    currentEndPoint = settingsFile.readStringUntil('\n');
-    currentUpdateRate = settingsFile.readStringUntil('\n').toInt();
-    Serial.println("Read UUID: " + nodeUUID);
-    Serial.println("Read Name: " + nodeName);
-    Serial.println("Read EndPoint: " + currentEndPoint);
-    Serial.println("Read UpdateRate: " + currentUpdateRate);
+    if(SPIFFS.exists(SETTINGS_FILE))
+    {
+      Serial.println("Reading existing settings from file.");
+      nodeUUID = settingsFile.readStringUntil('\n');
+      nodeName = settingsFile.readStringUntil('\n');
+      currentEndPoint = settingsFile.readStringUntil('\n');
+      currentUpdateRate = settingsFile.readStringUntil('\n').toInt();
+      Serial.println("Read UUID: " + nodeUUID);
+      Serial.println("Read Name: " + nodeName);
+      Serial.println("Read EndPoint: " + currentEndPoint);
+      Serial.println("Read UpdateRate: " + String(currentUpdateRate));
+    }
   }
   settingsFile.close();
 }
@@ -211,6 +214,11 @@ void handle_SaveSettings()
   Serial.println("Saved new update rate to be " + String(currentUpdateRate) + " ms");
   Serial.println("Node name changed to " + nodeName);
   Serial.println("Node UUID changed to " + nodeUUID);
+
+  uuidInput.value = nodeUUID;
+  nameInput.value = nodeName;
+  urlInput.value = currentEndPoint;
+  intervalInput.value = currentUpdateRate;
 
   // redirect back to main page after saving
   server.sendHeader("Location", "/status",true);
@@ -379,9 +387,11 @@ void fetchData()
   // create JSON document
   StaticJsonDocument<MAX_JSON_REPLY> jsonDoc;
   currentJSONReply = "";
-  jsonDoc["UUID"] = nodeUUID;
-  jsonDoc["Name"] = nodeName;
-  JsonObject dataObj = jsonDoc.createNestedObject("Data");
+  nodeUUID.trim();
+  nodeName.trim();
+  jsonDoc["uuid"] = nodeUUID;
+  jsonDoc["name"] = nodeName;
+  JsonObject dataObj = jsonDoc.createNestedObject("data");
 
   // obtain information from sensors
   Serial.println("Gathering sensor data.");
@@ -420,6 +430,7 @@ void setup()
       Serial.println("An Error has occurred while mounting SPIFFS. Rebooting.");
       ESP.restart();
   }
+  Serial.println("SPIFFS mounted.");
   // load settings on boot
   loadSettings();
 
@@ -437,6 +448,12 @@ void setup()
   Portal.config(portalConfig);
   Portal.home("/status");
   Portal.onNotFound(handle_NotFound);
+
+  uuidInput.value = nodeUUID;
+  nameInput.value = nodeName;
+  urlInput.value = currentEndPoint;
+  intervalInput.value = currentUpdateRate;
+
   Portal.join({endpointConfigPage});
   
   // initialize the web UI
