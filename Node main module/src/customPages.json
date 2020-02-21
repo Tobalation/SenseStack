@@ -1,0 +1,127 @@
+[
+    {
+        "title": "Module configuration",
+        "uri": "/moduleconfig",
+        "menu": true,
+        "element": [
+            {
+                "name": "header_node",
+                "type": "ACText",
+                "value": "<h2>Node configuration<h2>"
+            },
+            {
+                "name": "caption_node",
+                "type": "ACText",
+                "value": "Name and UUID identifier for this node."
+            },
+            {
+                "name": "nameInput",
+                "type": "ACInput",
+                "label": "Node name"
+            },
+            {
+                "name": "uuidInput",
+                "type": "ACInput",
+                "label": "UUID"
+            },
+            {
+                "name": "header_url",
+                "type": "ACText",
+                "value": "<h2>Data endpoint configuration<h2>"
+            },
+            {
+                "name": "caption_url",
+                "type": "ACText",
+                "value": "Enter the URL of the destination that you wish to send data to."
+            },
+            {
+                "name": "urlInput",
+                "type": "ACInput",
+                "label": "URL"
+            },
+            {
+                "name": "header_interval",
+                "type": "ACText",
+                "value": "<h2>Update interval configuration<h2>"
+            },
+            {
+                "name": "caption_interval",
+                "type": "ACText",
+                "value": "Enter the time for each update interval. Updating this value will restart the timer."
+            },
+            {
+                "name": "intervalInput",
+                "type": "ACInput",
+                "label": "Update Interval (ms)"
+            },
+            {
+                "name": "save",
+                "type": "ACSubmit",
+                "value": "Save settings",
+                "uri": "/save_settings"
+            }
+        ]
+    },
+    {
+        "title": "Node status",
+        "uri": "/status",
+        "menu": false,
+        "element": [
+            {
+                "name": "header_title",
+                "type": "ACText",
+                "value": "<h2>Node name, UUID status<h2>"
+            },
+            {
+                "name": "header_lastreply",
+                "type": "ACText",
+                "value": "<h2>Latest data string<h2>"
+            },
+            {
+                "name": "currentReply",
+                "type": "ACText",
+                "value": "NULL"
+            },
+            {
+                "name": "header_endpoint",
+                "type": "ACText",
+                "value": "<h2>Current data endpoint URL<h2>"
+            },
+            {
+                "name": "currentEndpoint",
+                "type": "ACText",
+                "value": "NULL"
+            },
+            {
+                "name": "header_epreply",
+                "type": "ACText",
+                "value": "<h2>Last reply from endpoint<h2>"
+            },
+            {
+                "name": "lastPOSTreply",
+                "type": "ACText",
+                "value": "N/A"
+            },
+            {
+                "name": "header_interval",
+                "type": "ACText",
+                "value": "<h2>Current update interval (milliseconds)<h2>"
+            },
+            {
+                "name": "currentUpdateRate",
+                "type": "ACText",
+                "value": "0"
+            },
+            {
+                "name": "header_uptime",
+                "type": "ACText",
+                "value": "<h2>Current up time (seconds)<h2>"
+            },
+            {
+                "name": "currentUpTime",
+                "type": "ACText",
+                "value": "0"
+            }
+        ]
+    }
+]

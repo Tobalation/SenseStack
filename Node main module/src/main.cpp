@@ -23,6 +23,7 @@ AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
 String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
 String lastPOSTreply = "N/A"; // string to save last POST status reply
 
+// config vars set to default values
 String nodeName = "MainModule";
 String nodeUUID = "1234567890";
 String currentEndPoint = "https://yourgisdb.com/apiforposting/";
@@ -32,21 +33,136 @@ WebServer server; // HTTP server to serve web UI
 AutoConnect Portal(server); // AutoConnect handler object
 AutoConnectConfig portalConfig("MainModuleAP","12345678");
 
-// TODO: make pages JSON strings in PROGMEM
-// see https://hieromon.github.io/AutoConnect/achandling.html#transfer-of-input-values-across-pages for example
-// Endpoint config menu
-AutoConnectText header0("header0","<h2>Node configuration<h2>","padding:10px");
-AutoConnectText caption0("caption0","Name and UUID identifier for this node.");
-AutoConnectInput nameInput("nameInput","","Node name","","");
-AutoConnectInput uuidInput("uuidInput","","UUID","","");
-AutoConnectText header1("header1","<h2>Data endpoint configuration<h2>","padding:10px");
-AutoConnectText caption1("caption1","Enter the URL of the destination that you wish to send data to.");
-AutoConnectInput urlInput("urlInput","","URL","","Endpoint URL");
-AutoConnectText header2("header2","<h2>Update interval configuration<h2>","padding:10px");
-AutoConnectText caption2("caption2","Enter the time for each update interval. Updating this value will restart the timer.");
-AutoConnectInput intervalInput("intervalInput",String(DEFAULT_UPDATE_INTERVAL).c_str(),"Update Interval (ms)","","ms");
-AutoConnectSubmit save("save","Save","/save_settings");
-AutoConnectAux endpointConfigPage("/moduleconfig","Module configuration",true,{header0,caption0,nameInput,uuidInput,header1,caption1,urlInput,header2,caption2,intervalInput,save});
+// configuration and status pages
+const static char customPageJSON[] PROGMEM = R"raw(
+[
+    {
+        "title": "Module configuration",
+        "uri": "/moduleconfig",
+        "menu": true,
+        "element": [
+            {
+                "name": "header_node",
+                "type": "ACText",
+                "value": "<h2>Node configuration<h2>"
+            },
+            {
+                "name": "caption_node",
+                "type": "ACText",
+                "value": "Name and UUID identifier for this node."
+            },
+            {
+                "name": "nameInput",
+                "type": "ACInput",
+                "label": "Node name"
+            },
+            {
+                "name": "uuidInput",
+                "type": "ACInput",
+                "label": "UUID"
+            },
+            {
+                "name": "header_url",
+                "type": "ACText",
+                "value": "<h2>Data endpoint configuration<h2>"
+            },
+            {
+                "name": "caption_url",
+                "type": "ACText",
+                "value": "Enter the URL of the destination that you wish to send data to."
+            },
+            {
+                "name": "urlInput",
+                "type": "ACInput",
+                "label": "URL"
+            },
+            {
+                "name": "header_interval",
+                "type": "ACText",
+                "value": "<h2>Update interval configuration<h2>"
+            },
+            {
+                "name": "caption_interval",
+                "type": "ACText",
+                "value": "Enter the time for each update interval. Updating this value will restart the timer."
+            },
+            {
+                "name": "intervalInput",
+                "type": "ACInput",
+                "label": "Update Interval (ms)"
+            },
+            {
+                "name": "save",
+                "type": "ACSubmit",
+                "value": "Save settings",
+                "uri": "/save_settings"
+            }
+        ]
+    },
+    {
+        "title": "Node status",
+        "uri": "/status",
+        "menu": false,
+        "element": [
+            {
+                "name": "header_title",
+                "type": "ACText",
+                "value": "<h2>Node name, UUID status<h2>"
+            },
+            {
+                "name": "header_lastreply",
+                "type": "ACText",
+                "value": "<h2>Latest data string<h2>"
+            },
+            {
+                "name": "currentReply",
+                "type": "ACText",
+                "value": "NULL"
+            },
+            {
+                "name": "header_endpoint",
+                "type": "ACText",
+                "value": "<h2>Current data endpoint URL<h2>"
+            },
+            {
+                "name": "currentEndpoint",
+                "type": "ACText",
+                "value": "NULL"
+            },
+            {
+                "name": "header_epreply",
+                "type": "ACText",
+                "value": "<h2>Last reply from endpoint<h2>"
+            },
+            {
+                "name": "lastPOSTreply",
+                "type": "ACText",
+                "value": "N/A"
+            },
+            {
+                "name": "header_interval",
+                "type": "ACText",
+                "value": "<h2>Current update interval (milliseconds)<h2>"
+            },
+            {
+                "name": "currentUpdateRate",
+                "type": "ACText",
+                "value": "0"
+            },
+            {
+                "name": "header_uptime",
+                "type": "ACText",
+                "value": "<h2>Current up time (seconds)<h2>"
+            },
+            {
+                "name": "currentUpTime",
+                "type": "ACText",
+                "value": "0"
+            }
+        ]
+    }
+]
+)raw";
 
 // -------------- Helper functions -------------- //
 
@@ -123,34 +239,40 @@ void loadSettings()
 
 // -------------- Web functions -------------- //
 
-// TODO: put pages in PROGMEM or SPIFFS for better space efficiency
-// status page HTML
-String StatusPage()
+// handler to setup initial values for status page
+String handle_Status(AutoConnectAux& aux, PageArgument& args)
 {
-  // refer to testPage.html in src
-  String html = "<!DOCTYPE html><html>\n";
-  html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  html +="<title>Main Module Status</title>\n";
-  html +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
-  html +="body {margin-top: 50px;}h1 {color: #444444;margin: 50px auto 30px;}h2 {color: #707070;margin: 50px auto 30px;}h3 {color: #444444;margin-bottom: 50px;}\n";
-  html +="</style>\n";
-  html +="</head>\n";
-  html +="<body>\n";
-  html +="<h1>" + nodeName + ", " + nodeUUID + " Status</h1>\n";
-  html +="<h2>Latest data string</h2>\n";
-  html +="<h3>" + currentJSONReply + "</h3>\n";
-  html +="<h2>Current endpoint URL</h2>\n";
-  html +="<h3>" + currentEndPoint + "</h3>\n";
-  html +="<h2>Last end point reply</h2>\n";
-  html +="<h3>" + lastPOSTreply + "</h3>\n";
-  html +="<h2>Current update interval (milliseconds)</h2>\n";
-  html +="<h3>" + String(currentUpdateRate) + "</h3>\n";
-  html +="<h2>Current up time (seconds)</h2>\n";
-  html +="<h3>" + String(millis() / 1000) + "</h3>\n";
-  html +="<p><a href='/_ac'>Main page</a></p>\n";
-  html +="</body>\n";
-  html +="</html>\n";
-  return html;
+  AutoConnectText& title = aux.getElement<AutoConnectText>("header_title");
+  AutoConnectText& reply = aux.getElement<AutoConnectText>("currentReply");
+  AutoConnectText& endpoint = aux.getElement<AutoConnectText>("currentEndpoint");
+  AutoConnectText& lastpost = aux.getElement<AutoConnectText>("lastPOSTreply");
+  AutoConnectText& interval = aux.getElement<AutoConnectText>("currentUpdateRate");
+  AutoConnectText& uptime = aux.getElement<AutoConnectText>("currentUpTime");
+
+  title.value = "<h2>" + nodeName + ", UUID:" + nodeUUID + " status<h2>";
+  reply.value = currentJSONReply;
+  endpoint.value = currentEndPoint;
+  lastpost.value = lastPOSTreply;
+  interval.value = String(currentUpdateRate);
+  uptime.value = String(millis() / 1000);
+
+  return String();
+}
+
+// handler to setup initial values for configuration page
+String handle_Config(AutoConnectAux& aux, PageArgument& args)
+{
+  AutoConnectInput& name = aux.getElement<AutoConnectInput>("nameInput");
+  AutoConnectInput& uuid = aux.getElement<AutoConnectInput>("uuidInput");
+  AutoConnectInput& endpoint = aux.getElement<AutoConnectInput>("urlInput");
+  AutoConnectInput& interval = aux.getElement<AutoConnectInput>("intervalInput");
+
+  name.value = nodeName;
+  uuid.value = nodeUUID;
+  endpoint.value = currentEndPoint;
+  interval.value = String(currentUpdateRate);
+  
+  return String();
 }
 
 // 404 page HTML
@@ -159,7 +281,7 @@ String RedirectPage()
   String html = "<!DOCTYPE html><html>\n";
   html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   html +="<title>Page not found</title></head>\n";
-  html +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}</style>\n";
+  html +="<style>html { font-family: Verdana; display: inline-block; margin: 0px auto; text-align: center;}</style>\n";
   html +="<body>\n";
   html +="<h1>404</h1>\n";
   html +="<p>This page does not exist.</p>\n";
@@ -167,12 +289,6 @@ String RedirectPage()
   html +="</body>\n";
   html +="</html>\n";
   return html;
-}
-
-// show status
-void handle_Status()
-{
-  server.send(200, "text/html", StatusPage());
 }
 
 // handle 404
@@ -214,11 +330,6 @@ void handle_SaveSettings()
   Serial.println("Saved new update rate to be " + String(currentUpdateRate) + " ms");
   Serial.println("Node name changed to " + nodeName);
   Serial.println("Node UUID changed to " + nodeUUID);
-
-  uuidInput.value = nodeUUID;
-  nameInput.value = nodeName;
-  urlInput.value = currentEndPoint;
-  intervalInput.value = currentUpdateRate;
 
   // redirect back to main page after saving
   server.sendHeader("Location", "/status",true);
@@ -435,28 +546,22 @@ void setup()
   loadSettings();
 
   // attach handlers
-  server.on("/status", handle_Status);
-  server.on("/", handle_Status);
   server.on("/save_settings", handle_SaveSettings);
 
-  // setup the web UI
+  // setup AutoConnect
   portalConfig.title = "Main Module v1.0";
   portalConfig.apid = "MainModule-" + String((uint32_t)(ESP.getEfuseMac() >> 32), HEX);
   portalConfig.apip = IPAddress(192,168,1,1);
   portalConfig.gateway = IPAddress(192,168,1,1);
   portalConfig.bootUri = AC_ONBOOTURI_ROOT;
   Portal.config(portalConfig);
+  Portal.load(customPageJSON);
   Portal.home("/status");
+  Portal.on("/status",handle_Status,AC_EXIT_AHEAD);
+  Portal.on("/moduleconfig",handle_Config,AC_EXIT_AHEAD);
   Portal.onNotFound(handle_NotFound);
 
-  uuidInput.value = nodeUUID;
-  nameInput.value = nodeName;
-  urlInput.value = currentEndPoint;
-  intervalInput.value = currentUpdateRate;
-
-  Portal.join({endpointConfigPage});
-  
-  // initialize the web UI
+  // initialize networking via AutoConnect
   if(Portal.begin())
   {
     Serial.println("\nNetworking started.");
