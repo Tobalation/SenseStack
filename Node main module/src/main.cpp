@@ -20,7 +20,7 @@
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
 
-String currentJSONReply = "";  // string to hold JSON object to be sent to endpoint
+String currentJSONReply = "No data";  // string to hold JSON object to be sent to endpoint
 String lastPOSTreply = "N/A"; // string to save last POST status reply
 
 // config vars set to default values
@@ -107,31 +107,35 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_title",
                 "type": "ACText",
-                "value": "<h2>Node name, UUID status<h2>"
+                "style": "align-content:center;color:#263238;border-bottom:5px solid #263238",
+                "value": "<h2>Node name status<h2>"
             },
             {
                 "name": "header_lastreply",
                 "type": "ACText",
+                "style": "color:#263238;",
                 "value": "<h2>Latest data string<h2>"
             },
             {
                 "name": "currentReply",
                 "type": "ACText",
-                "value": "NULL"
+                "value": "No data"
             },
             {
                 "name": "header_endpoint",
                 "type": "ACText",
+                "style": "color:#263238;",
                 "value": "<h2>Current data endpoint URL<h2>"
             },
             {
                 "name": "currentEndpoint",
                 "type": "ACText",
-                "value": "NULL"
+                "value": "No data"
             },
             {
                 "name": "header_epreply",
                 "type": "ACText",
+                "style": "color:#263238;",
                 "value": "<h2>Last reply from endpoint<h2>"
             },
             {
@@ -142,6 +146,7 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_interval",
                 "type": "ACText",
+                "style": "color:#263238;",
                 "value": "<h2>Current update interval (milliseconds)<h2>"
             },
             {
@@ -152,6 +157,7 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_uptime",
                 "type": "ACText",
+                "style": "color:#263238;",
                 "value": "<h2>Current up time (seconds)<h2>"
             },
             {
@@ -249,7 +255,7 @@ String handle_Status(AutoConnectAux& aux, PageArgument& args)
   AutoConnectText& interval = aux.getElement<AutoConnectText>("currentUpdateRate");
   AutoConnectText& uptime = aux.getElement<AutoConnectText>("currentUpTime");
 
-  title.value = "<h2>" + nodeName + ", UUID:" + nodeUUID + " status<h2>";
+  title.value = "<h2>" + nodeName + " status<h2>";
   reply.value = currentJSONReply;
   endpoint.value = currentEndPoint;
   lastpost.value = lastPOSTreply;
