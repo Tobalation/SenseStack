@@ -13,7 +13,7 @@
 #include "protocol.h"
 
 #define LED_BUILTIN 2
-#define DEFAULT_UPDATE_INTERVAL 30000
+#define DEFAULT_UPDATE_INTERVAL 60000
 #define BLINK_TIME 500
 #define SETTINGS_FILE "/settings.txt"
 
@@ -107,13 +107,13 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_title",
                 "type": "ACText",
-                "style": "align-content:center;color:#263238;border-bottom:5px solid #263238",
+                "style": "color:#06697c;border-bottom:5px solid black",
                 "value": "<h2>Node name status<h2>"
             },
             {
                 "name": "header_lastreply",
                 "type": "ACText",
-                "style": "color:#263238;",
+                "style": "color:#06697c;",
                 "value": "<h2>Latest data string<h2>"
             },
             {
@@ -124,7 +124,7 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_endpoint",
                 "type": "ACText",
-                "style": "color:#263238;",
+                "style": "color:#06697c;",
                 "value": "<h2>Current data endpoint URL<h2>"
             },
             {
@@ -135,7 +135,7 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_epreply",
                 "type": "ACText",
-                "style": "color:#263238;",
+                "style": "color:#06697c;",
                 "value": "<h2>Last reply from endpoint<h2>"
             },
             {
@@ -146,7 +146,7 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_interval",
                 "type": "ACText",
-                "style": "color:#263238;",
+                "style": "color:#06697c;",
                 "value": "<h2>Current update interval (milliseconds)<h2>"
             },
             {
@@ -157,7 +157,7 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "header_uptime",
                 "type": "ACText",
-                "style": "color:#263238;",
+                "style": "color:#06697c;",
                 "value": "<h2>Current up time (seconds)<h2>"
             },
             {
