@@ -43,7 +43,7 @@
                 "name": "currentLocBtn",
                 "type": "ACButton",
                 "value": "Use current location",
-                "action": "navigator.geolocation.getCurrentPosition(f);function f(pos){document.getElementById("latInput").value = pos.coords.latitude; document.getElementById("longInput").value = pos.coords.longitude;}"
+                "action": "function getPos() {navigator.geolocation.getCurrentPosition(set);}function set(pos){document.getElementById('latInput').value = pos.coords.latitude; document.getElementById('longInput').value = pos.coords.longitude;} getPos();"
             },
             {
                 "name": "header_url",

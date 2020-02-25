@@ -82,7 +82,7 @@ const static char customPageJSON[] PROGMEM = R"raw(
                 "name": "currentLocBtn",
                 "type": "ACButton",
                 "value": "Use current location",
-                "action": "navigator.geolocation.getCurrentPosition(f);function f(pos){document.getElementById("latInput").value = pos.coords.latitude; document.getElementById("longInput").value = pos.coords.longitude;}"
+                "action": "function getPos() {navigator.geolocation.getCurrentPosition(set);}function set(pos){document.getElementById('latInput').value = pos.coords.latitude; document.getElementById('longInput').value = pos.coords.longitude;} getPos();"
             },
             {
                 "name": "header_url",
@@ -363,13 +363,20 @@ void handle_SaveSettings()
   String newUUID = server.arg("uuidInput");
   nodeUUID = newUUID;
 
+  String newLat = server.arg("latInput");
+  nodeLat = newLat;
+
+  String newLong = server.arg("longInput");
+  nodeLong = newLong;
+
   // save settings to file
   saveSettings();
 
   Serial.println("Saved new end point URL as " + currentEndPoint);
   Serial.println("Saved new update rate to be " + String(currentUpdateRate) + " ms");
-  Serial.println("Node name changed to " + nodeName);
-  Serial.println("Node UUID changed to " + nodeUUID);
+  Serial.println("Saved node name as " + nodeName);
+  Serial.println("Saved UUID as " + nodeUUID);
+  Serial.println("Saved location as " + nodeLat + " " + nodeLong);
 
   // redirect back to main page after saving
   server.sendHeader("Location", "/status",true);
