@@ -26,6 +26,8 @@ String lastPOSTreply = "N/A"; // string to save last POST status reply
 // config vars set to default values
 String nodeName = "MainModule";
 String nodeUUID = "1234567890";
+String nodeLat = "N/A";
+String nodeLong = "N/A";
 String currentEndPoint = "https://yourgisdb.com/apiforposting/";
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 
@@ -60,6 +62,27 @@ const static char customPageJSON[] PROGMEM = R"raw(
                 "name": "uuidInput",
                 "type": "ACInput",
                 "label": "UUID"
+            },
+            {
+                "name": "caption_GPS",
+                "type": "ACText",
+                "value": "GPS coordinates of this node."
+            },
+            {
+                "name": "latInput",
+                "type": "ACInput",
+                "label": "Latitude"
+            },
+            {
+                "name": "longInput",
+                "type": "ACInput",
+                "label": "Longitude"
+            },
+            {
+                "name": "currentLocBtn",
+                "type": "ACButton",
+                "value": "Use current location",
+                "action": "navigator.geolocation.getCurrentPosition(f);function f(pos){document.getElementById("latInput").value = pos.coords.latitude; document.getElementById("longInput").value = pos.coords.longitude;}"
             },
             {
                 "name": "header_url",
@@ -206,6 +229,8 @@ void saveSettings()
   settingsFile.println(nodeName);
   settingsFile.println(currentEndPoint);
   settingsFile.println(currentUpdateRate);
+  settingsFile.println(nodeLat);
+  settingsFile.println(nodeLong);
   Serial.println("Wrote existing settings to save file.");
   settingsFile.close();
 }
@@ -222,6 +247,8 @@ void loadSettings()
     newSettingsFile.println(nodeName);
     newSettingsFile.println(currentEndPoint);
     newSettingsFile.println(currentUpdateRate);
+    newSettingsFile.println(nodeLat);
+    newSettingsFile.println(nodeLong);
     Serial.println("Wrote default settings to file.");
     newSettingsFile.close();
   }
@@ -234,10 +261,13 @@ void loadSettings()
       nodeName = settingsFile.readStringUntil('\n');
       currentEndPoint = settingsFile.readStringUntil('\n');
       currentUpdateRate = settingsFile.readStringUntil('\n').toInt();
+      nodeLat = settingsFile.readStringUntil('\n');
+      nodeLong = settingsFile.readStringUntil('\n');
       Serial.println("Read UUID: " + nodeUUID);
       Serial.println("Read Name: " + nodeName);
       Serial.println("Read EndPoint: " + currentEndPoint);
       Serial.println("Read UpdateRate: " + String(currentUpdateRate));
+      Serial.println("Read Position: " + nodeLat + "," + nodeLong);
     }
   }
   settingsFile.close();
@@ -270,11 +300,15 @@ String handle_Config(AutoConnectAux& aux, PageArgument& args)
 {
   AutoConnectInput& name = aux.getElement<AutoConnectInput>("nameInput");
   AutoConnectInput& uuid = aux.getElement<AutoConnectInput>("uuidInput");
+  AutoConnectInput& latitude = aux.getElement<AutoConnectInput>("latInput");
+  AutoConnectInput& longitude = aux.getElement<AutoConnectInput>("longInput");
   AutoConnectInput& endpoint = aux.getElement<AutoConnectInput>("urlInput");
   AutoConnectInput& interval = aux.getElement<AutoConnectInput>("intervalInput");
 
   name.value = nodeName;
   uuid.value = nodeUUID;
+  latitude.value = nodeLat;
+  longitude.value = nodeLong;
   endpoint.value = currentEndPoint;
   interval.value = String(currentUpdateRate);
   
@@ -506,8 +540,12 @@ void fetchData()
   currentJSONReply = "";
   nodeUUID.trim();
   nodeName.trim();
+  nodeLat.trim();
+  nodeLong.trim();
   jsonDoc["uuid"] = nodeUUID;
   jsonDoc["name"] = nodeName;
+  jsonDoc["lat"] = nodeLat;
+  jsonDoc["long"] = nodeLong;
   JsonObject dataObj = jsonDoc.createNestedObject("data");
 
   // obtain information from sensors

@@ -25,6 +25,27 @@
                 "label": "UUID"
             },
             {
+                "name": "caption_GPS",
+                "type": "ACText",
+                "value": "GPS coordinates of this node."
+            },
+            {
+                "name": "latInput",
+                "type": "ACInput",
+                "label": "Latitude"
+            },
+            {
+                "name": "longInput",
+                "type": "ACInput",
+                "label": "Longitude"
+            },
+            {
+                "name": "currentLocBtn",
+                "type": "ACButton",
+                "value": "Use current location",
+                "action": "navigator.geolocation.getCurrentPosition(f);function f(pos){document.getElementById("latInput").value = pos.coords.latitude; document.getElementById("longInput").value = pos.coords.longitude;}"
+            },
+            {
                 "name": "header_url",
                 "type": "ACText",
                 "value": "<h2>Data endpoint configuration<h2>"
