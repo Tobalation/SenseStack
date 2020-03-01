@@ -34,6 +34,7 @@ unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 WebServer server; // HTTP server to serve web UI
 AutoConnect Portal(server); // AutoConnect handler object
 AutoConnectConfig portalConfig("MainModuleAP","12345678");
+AutoConnectAux sensorsViewer("/sensorviewer","Sensor viewer",true);
 
 // configuration and status pages
 const static char customPageJSON[] PROGMEM = R"raw(
@@ -192,6 +193,103 @@ const static char customPageJSON[] PROGMEM = R"raw(
     }
 ]
 )raw";
+
+const char customPageSensorViewer[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+        integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+    <style>
+        html {
+            font-family: Arial;
+            display: inline-block;
+            margin: 0px auto;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 3.0rem;
+        }
+
+        p {
+            font-size: 3.0rem;
+        }
+
+        .units {
+            font-size: 1.2rem;
+        }
+
+        .sensor-label {
+            font-size: 1.5rem;
+            vertical-align: middle;
+            padding-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>SenseStack Sensor Viewer</h2>
+    <div id=sensorElement>
+        <p>If you see this, something went wrong.</p>
+    </div>
+</body>
+
+<footer>
+    <p style="padding-top:15px;text-align:center">
+        <a href="/_ac"><img
+                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAC2klEQVRIS61VvWsUQRSfmU2pon9BUIkQUaKFaCBKgooSb2d3NSSFKbQR/KrEIiIKBiGF2CgRxEpjQNHs7mwOUcghwUQ7g58IsbGxEBWsb2f8zR177s3t3S2cA8ftzPu993vzvoaSnMu2vRKlaqgKp74Q/tE8qjQPyHGcrUrRjwlWShmDbFMURd/a6TcQwNiYUmpFCPElUebcuQ2vz6aNATMVReHEPwzfSSntDcNwNo2rI+DcvQzhpAbA40VKyV0p1Q9snzBG1qYVcYufXV1sREraDcxpyHdXgkfpRBj6Uwm2RsC5dxxmZ9pdOY9cKTISRcHTCmGiUCh4fYyplTwG2mAUbtMTBMHXOgK9QfyXEZr+TkgQ1oUwDA40hEgfIAfj+HuQRaBzAs9eKyUZ5Htx+T3ZODKG8DzOJMANhmGomJVMXPll+hx9UUAlzZrJJ4QNCDG3VEfguu7mcpmcB/gkBOtShhQhchAlu5jlLUgc9ENgyP5gf9+y6LTv+58p5zySkgwzLNOIGc8sEoT1Lc53NMlbCQQuvMxeCME1NNPVVkmH/i3IzzXDtCSA0qQQwZWOCJDY50jsQRjJmkslEOxvTcDRO6zPxOh5xZglKkYLhWM9jMVnkIsTyMT6NBj7IbOCEjm6HxNVVTo2WXqEWJZ1T8rytB6GxizyDkPhWVpBqfiXUtbo/HywYJSpA9kMamNNPZ71R9Hcm+TMHHZNGw3EuraXEUldbfvw25UdOjqOt+JhMwJd7+jSTpZaEiIcaCDwPK83jtWnTkwnunFMtxeL/ge9r4XItt1RNNaj/0GAcV2bR3U5sG3nEh6M61US+Qrfd9Bs31GGulI2GOS/8dgcQZV1w+ApjIxB7TDwF9GcNzJzoA+rD0/8HvPnXQJCt2qFCwbBTfRI7UyXumWVt+HJ9NO4XI++bdsb0YyrqXmlh+AWOLHaLqS5CLQR5EggR3YlcVS9gKeH2hnX8r8Kmi1CAsl36QAAAABJRU5ErkJggg==" border="0" title="AutoConnect menu" alt="AutoConnect menu" />
+            </a>
+    </p>
+
+</footer>
+
+
+<script>
+
+    loadData();
+    setInterval(loadData, 1000);
+
+    function loadData(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+
+                var sensorElement = document.getElementById("sensorElement");
+
+                sensorElement.textContent = "";
+
+            
+                var sensorsData = JSON.parse(this.response).data;
+                
+                console.log(sensorsData);
+
+                if (Object.keys(sensorsData).length == 0 ) {
+                    sensorElement.innerHTML = "<p> No sensor connected </p>"
+                    return;
+                }
+
+                for (sensorName of Object.keys(sensorsData)) {
+                    sensorElement.innerHTML += "<p><span class=\"sensor-label\">" +
+                        sensorName + "</span> <span id=\"sensor-value\">" +
+                        sensorsData[sensorName] + " </span> <sup class=\"units\">" + ' ' + " </sup>  </p>";
+
+                }
+
+            }
+        };
+
+
+        xhttp.open("GET", "/getJSON", true);
+        xhttp.send();
+    }
+
+</script>
+</html>
+
+)rawliteral";
 
 // -------------- Helper functions -------------- //
 
@@ -381,6 +479,15 @@ void handle_SaveSettings()
   // redirect back to main page after saving
   server.sendHeader("Location", "/status",true);
   server.send(302, "text/plain",""); 
+}
+
+//return JSON from HTTP Request
+void handle_getJSON(){
+    server.send(200, "application/json",currentJSONReply); 
+}
+
+void handle_sensorViewer(){
+    server.send(200, "text/html",customPageSensorViewer); 
 }
 
 // POST latest JSON string to current URL endpoint
@@ -598,6 +705,8 @@ void setup()
 
   // attach handlers
   server.on("/save_settings", handle_SaveSettings);
+  server.on("/getJSON", handle_getJSON);
+  server.on("/sensorviewer", handle_sensorViewer);
 
   // setup AutoConnect
   portalConfig.title = "Main Module v1.0";
@@ -611,6 +720,7 @@ void setup()
   Portal.on("/status",handle_Status,AC_EXIT_AHEAD);
   Portal.on("/moduleconfig",handle_Config,AC_EXIT_AHEAD);
   Portal.onNotFound(handle_NotFound);
+  Portal.join({sensorsViewer});
 
   // initialize networking via AutoConnect
   if(Portal.begin())
