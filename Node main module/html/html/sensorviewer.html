@@ -52,9 +52,10 @@
 
 <script>
 
-    loadData();
-    setInterval(loadData, 5000);
+    loadData();                  //Load the data for first time
+    setInterval(loadData, 1000); //Reload the data every X milliseconds.
 
+    //Load the JSON data from API, and then replace the HTML element
     function loadData(){
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function () {
@@ -62,19 +63,18 @@
 
                 var sensorElement = document.getElementById("sensorElement");
 
-                sensorElement.textContent = "";
+                sensorElement.textContent = "";     //Clear all elements in sensorElement div
 
             
-                var sensorsData = JSON.parse(this.response).data;
+                var sensorsData = JSON.parse(this.response).data;     //Parse the response to JSON object
                 
-                console.log(sensorsData);
 
-                if (Object.keys(sensorsData).length == 0 ) {
+                if (Object.keys(sensorsData).length == 0 ) {                          //object is empty
                     sensorElement.innerHTML = "<p> No sensor connected </p>"
                     return;
                 }
 
-                for (sensorName of Object.keys(sensorsData)) {
+                for (sensorName of Object.keys(sensorsData)) {                        //iterate through each element and create paragraph for each sensor 
                     sensorElement.innerHTML += "<p><span class=\"sensor-label\">" +
                         sensorName + "</span> <span id=\"sensor-value\">" +
                         sensorsData[sensorName] + " </span> <sup class=\"units\">" + ' ' + " </sup>  </p>";
@@ -85,10 +85,9 @@
         };
 
 
-        xhttp.open("GET", "/getJSON", true);
+        xhttp.open("GET", "/getJSON", true);      //request JSON data from URI/getJSON
         xhttp.send();
     }
 
 </script>
-
 </html>
