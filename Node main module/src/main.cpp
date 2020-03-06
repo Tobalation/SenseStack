@@ -485,6 +485,8 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
   }
   Serial.println(sensorAddr, HEX);
 
+  bool endTransmission = false;
+
   char replyData[MAX_SENSOR_REPLY_LENGTH]= {0};
   char lastSpecifier = 0;
   String dataKey = "";
@@ -503,28 +505,25 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
     }
     // start i2c transmission to module
     Wire.requestFrom(sensorAddr, MAX_SENSOR_REPLY_LENGTH);
+    endTransmission = false;
     replyCount++;
     // read until end of transmission
-    while (Wire.available())
+    while (Wire.available() && !endTransmission)
     {
       // read each individual character
       char c = Wire.read();
       switch(c) {
-        case CH_TERMINATE:
-          lastSpecifier = c;
-        break;
-
         case CH_IS_KEY:
           lastSpecifier = c;
           replyCharIter = 0;
           Serial.print("Reading key, ");
-        break;
+          break;
 
         case CH_IS_VALUE:
           lastSpecifier = c;
           replyCharIter = 0;
           Serial.print("Reading value, ");
-        break;
+          break;
 
         case CH_MORE:
           // terminate reply string
@@ -550,12 +549,43 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
           // clear the data buffer
           memset(replyData,0,sizeof(replyData));
           replyCharIter = 0;
-        break;
+          lastSpecifier = c;
+          endTransmission = true;
+          break;
+
+        case CH_TERMINATE:
+          // same as CH_more
+          // terminate reply string
+          replyData[replyCharIter] = 0;
+          // print out reading to see what we got
+          Serial.print("Parsed reading: ");
+          Serial.println(replyData);
+          // put the parsed reading in the right string and add data to JSON
+          if(lastSpecifier == CH_IS_KEY)
+          {
+            dataKey = String(replyData);
+          }
+          else if(lastSpecifier == CH_IS_VALUE)
+          {
+            dataValue = String(replyData);
+            // add the pair to the data object
+            dataObj[dataKey] = dataValue;
+          }
+          else
+          {
+            Serial.println("Unknown reading, discarding.");
+          }
+          // clear the data buffer
+          memset(replyData,0,sizeof(replyData));
+          replyCharIter = 0;
+          lastSpecifier = c;
+          endTransmission = true;
+          break;
 
         default:
           // append the character into the reply data array and increment replyCharIter
           replyData[replyCharIter++] = c;
-        break;
+          break;
       }
     }
   }

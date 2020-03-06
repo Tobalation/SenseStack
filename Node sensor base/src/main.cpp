@@ -39,13 +39,13 @@ void sendData()
 
   switch(transmissionCounter) {
   case 0:
-    reply = "$testKey^";
+    reply = CH_IS_KEY + String("testKey") + CH_MORE;
     // ALWAYS set to the next part of transmission
     transmissionCounter++;
     break;
   
   case 1:
-    reply = "#testValue!";
+    reply = CH_IS_VALUE + String("#testValue!") + CH_TERMINATE;
     // ALWAYS set counter to 0 when done sending everything
     transmissionCounter = 0;
     break;

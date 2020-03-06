@@ -44,7 +44,7 @@ void sendData()
 
   switch(transmissionCounter) {
   case 0:
-    reply = CH_IS_KEY + "temperature" + CH_MORE;
+    reply = CH_IS_KEY + String("temperature") + CH_MORE;
     transmissionCounter++;
     break;
   case 1:
@@ -52,7 +52,7 @@ void sendData()
     transmissionCounter++;
     break;
   case 2:
-   reply = CH_IS_KEY + "humidity" + CH_MORE;
+    reply = CH_IS_KEY + String("humidity") + CH_MORE;
     transmissionCounter++;
     break;
   case 3:
@@ -75,6 +75,7 @@ void setup()
   Wire.begin(SELF_ADDR);          // join i2c bus with defined address
   Wire.onRequest(sendData);       // register request event
   Serial.begin(9600);             // start serial for debug
+  Serial.println("Temperature/Humidity module started.");
 }
 
 void loop()
