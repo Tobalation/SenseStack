@@ -16,6 +16,7 @@
 #define DEFAULT_UPDATE_INTERVAL 60000
 #define BLINK_TIME 500
 #define SETTINGS_FILE "/settings.txt"
+#define DATA_TRANSMISSION_TIMEOUT 20 // arbitrary number
 
 byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
@@ -447,7 +448,7 @@ void scanDevices()
     }
     else if (error == 4) // unknown error
     {
-      Serial.print("Unknow error at address 0x");
+      Serial.print("Unknown error at address 0x");
       if (address < 16)
       {
         Serial.print("0");
@@ -484,57 +485,81 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
   }
   Serial.println(sensorAddr, HEX);
 
-  // begin i2c transmission
-  Wire.requestFrom(sensorAddr, MAX_SENSOR_REPLY_LENGTH);
-
   char replyData[MAX_SENSOR_REPLY_LENGTH]= {0};
   char lastSpecifier = 0;
-  String dataName = "";
+  String dataKey = "";
   String dataValue = "";
-  uint8_t replyIter = 0;
+  uint8_t replyCharIter = 0;
+  uint8_t replyCount = 0;
 
-  while (Wire.available())
-  {
-    char c = Wire.read();
-    switch(c) {
-      case CH_DATA_NAME:
-        lastSpecifier = c;
-        replyIter = 0;
-        Serial.print("Reading data name, ");
-      break;
-      case CH_DATA_BEGIN:
-        lastSpecifier = c;
-        replyIter = 0;
-        Serial.print("Reading data value, ");
-      break;
-      case CH_TERMINATOR:
-        // terminate reply string
-        replyData[replyIter] = 0;
-        // print out reading to see what we got
-        Serial.print("Parsed reading: ");
-        Serial.println(replyData);
-        // put the parsed reading in the right string
-        if(lastSpecifier == CH_DATA_NAME)
-        {
-          dataName = String(replyData);
-        }
-        else if(lastSpecifier == CH_DATA_BEGIN)
-        {
-          dataValue = String(replyData);
-        }
-        // add data to JSON reply
-        dataObj[dataName] = dataValue;
-        // clear the data buffer
-        memset(replyData,0,sizeof(replyData));
-        replyIter = 0;
-      break;
-
-      default:
-        // append the character into the reply data array and increment replyIter
-        replyData[replyIter++] = c;
+  // requst all data sensor module has to offer (with timeout)
+  while(lastSpecifier != CH_TERMINATE)
+  { 
+    // check timeout
+    if(replyCount >= DATA_TRANSMISSION_TIMEOUT)
+    {
+      Serial.println("Too many transmissions from module. Terminating!");
       break;
     }
+    // start i2c transmission to module
+    Wire.requestFrom(sensorAddr, MAX_SENSOR_REPLY_LENGTH);
+    replyCount++;
+    // read until end of transmission
+    while (Wire.available())
+    {
+      // read each individual character
+      char c = Wire.read();
+      switch(c) {
+        case CH_TERMINATE:
+          lastSpecifier = c;
+        break;
+
+        case CH_IS_KEY:
+          lastSpecifier = c;
+          replyCharIter = 0;
+          Serial.print("Reading key, ");
+        break;
+
+        case CH_IS_VALUE:
+          lastSpecifier = c;
+          replyCharIter = 0;
+          Serial.print("Reading value, ");
+        break;
+
+        case CH_MORE:
+          // terminate reply string
+          replyData[replyCharIter] = 0;
+          // print out reading to see what we got
+          Serial.print("Parsed reading: ");
+          Serial.println(replyData);
+          // put the parsed reading in the right string and add data to JSON
+          if(lastSpecifier == CH_IS_KEY)
+          {
+            dataKey = String(replyData);
+          }
+          else if(lastSpecifier == CH_IS_VALUE)
+          {
+            dataValue = String(replyData);
+            // add the pair to the data object
+            dataObj[dataKey] = dataValue;
+          }
+          else
+          {
+            Serial.println("Unknown reading, discarding.");
+          }
+          // clear the data buffer
+          memset(replyData,0,sizeof(replyData));
+          replyCharIter = 0;
+        break;
+
+        default:
+          // append the character into the reply data array and increment replyCharIter
+          replyData[replyCharIter++] = c;
+        break;
+      }
+    }
   }
+  Serial.println("Request complete. Total of " + String(replyCount) + " transmissions.");
 }
 
 // helper function to request data from all connected modules and create a JSON object

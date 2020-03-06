@@ -1,5 +1,3 @@
-//TODO: Update protocol to support multiple data transmissions from a single module (length>32 transmissions).
-
 // Maximum number of connected sensors for a module.
 #define MAX_SENSORS 10
 
@@ -22,6 +20,7 @@
 #define SENSOR_CO 17
 
 // Data type macros
-#define CH_DATA_NAME '$'
-#define CH_TERMINATOR '^'
-#define CH_DATA_BEGIN '#'
+#define CH_MORE '^'
+#define CH_TERMINATE '!'
+#define CH_IS_KEY '$'
+#define CH_IS_VALUE '#'
