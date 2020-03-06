@@ -45,7 +45,7 @@ void sendData()
     break;
   
   case 1:
-    reply = CH_IS_VALUE + String("#testValue!") + CH_TERMINATE;
+    reply = CH_IS_VALUE + String("testValue") + CH_TERMINATE;
     // ALWAYS set counter to 0 when done sending everything
     transmissionCounter = 0;
     break;
