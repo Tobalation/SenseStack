@@ -5,7 +5,9 @@
 #define BLINK_TIME 500
 
 byte SELF_ADDR = 126; // test value (1 below top addr)
+byte transmissionCounter = 0; // counter for what string to send
 
+// -------------- Utility Functions -------------- //
 void asyncBlink(unsigned long ms = 0)
 {
   static unsigned long stopTime = 0;
@@ -25,12 +27,31 @@ void asyncBlink(unsigned long ms = 0)
   }
 }
 
-// function that executes whenever data is requested from master
+// -------------- Protocol Function -------------- //
+// This function will be called when a request on I2C has been made
+// to this module. The main module will continue requesting until
+// the character CH_TERMINATE ('!') is recieved
+
 void sendData()
 {
   char replyData[MAX_SENSOR_REPLY_LENGTH];
-  String reply = "$test^#BASIC_SENSOR1^";
+  String reply = "";
+
+  switch(transmissionCounter) {
+  case 0:
+    reply = CH_IS_KEY + String("testKey") + CH_MORE;
+    // ALWAYS set to the next part of transmission
+    transmissionCounter++;
+    break;
+  
+  case 1:
+    reply = CH_IS_VALUE + String("testValue") + CH_TERMINATE;
+    // ALWAYS set counter to 0 when done sending everything
+    transmissionCounter = 0;
+    break;
+  }
   reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
+  Serial.println("Sent " + reply);
   Wire.write(replyData); // send string on request
   asyncBlink(BLINK_TIME);
 }
