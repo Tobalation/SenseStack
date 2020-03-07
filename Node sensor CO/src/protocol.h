@@ -20,7 +20,7 @@
 #define SENSOR_CO 17
 
 // Data type macros
-#define CH_MORE '^'
+#define CH_MORE '@'
 #define CH_TERMINATE '!'
 #define CH_IS_KEY '$'
 #define CH_IS_VALUE '#'
