@@ -18,11 +18,11 @@
 #define SETTINGS_FILE "/settings.txt"
 #define DATA_TRANSMISSION_TIMEOUT 20 // arbitrary number
 
-byte modules[MAX_SENSORS];  // array with address listings of connected sensor modules
+byte modules[MAX_SENSORS];      // array with address listings of connected sensor modules
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
 
-String currentJSONReply = "No data";  // string to hold JSON object to be sent to endpoint
-String lastPOSTreply = "N/A"; // string to save last POST status reply
+String currentJSONReply = "No data"; // string to hold JSON object to be sent to endpoint
+String lastPOSTreply = "N/A";        // string to save last POST status reply
 
 // config vars set to default values
 String nodeName = "MainModule";
@@ -32,9 +32,10 @@ String nodeLong = "N/A";
 String currentEndPoint = "https://yourgisdb.com/apiforposting/";
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 
-WebServer server; // HTTP server to serve web UI
+WebServer server;           // HTTP server to serve web UI
 AutoConnect Portal(server); // AutoConnect handler object
-AutoConnectConfig portalConfig("MainModuleAP","12345678");
+AutoConnectConfig portalConfig("MainModuleAP", "12345678");
+AutoConnectAux sensorsViewer("/sensorviewer", "Sensor viewer", true);
 
 // configuration and status pages
 const static char customPageJSON[] PROGMEM = R"raw(
@@ -194,11 +195,108 @@ const static char customPageJSON[] PROGMEM = R"raw(
 ]
 )raw";
 
+const char customPageSensorViewer[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+        integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+    <style>
+        html {
+            font-family: Arial;
+            display: inline-block;
+            margin: 0px auto;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 3.0rem;
+        }
+
+        p {
+            font-size: 3.0rem;
+        }
+
+        .units {
+            font-size: 1.2rem;
+        }
+
+        .sensor-label {
+            font-size: 1.5rem;
+            vertical-align: middle;
+            padding-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>SenseStack Sensor Viewer</h2>
+    <div id=sensorElement>
+        <p>If you see this, something went wrong.</p>
+    </div>
+</body>
+
+<footer>
+    <p style="padding-top:15px;text-align:center">
+        <a href="/_ac"><img
+                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAC2klEQVRIS61VvWsUQRSfmU2pon9BUIkQUaKFaCBKgooSb2d3NSSFKbQR/KrEIiIKBiGF2CgRxEpjQNHs7mwOUcghwUQ7g58IsbGxEBWsb2f8zR177s3t3S2cA8ftzPu993vzvoaSnMu2vRKlaqgKp74Q/tE8qjQPyHGcrUrRjwlWShmDbFMURd/a6TcQwNiYUmpFCPElUebcuQ2vz6aNATMVReHEPwzfSSntDcNwNo2rI+DcvQzhpAbA40VKyV0p1Q9snzBG1qYVcYufXV1sREraDcxpyHdXgkfpRBj6Uwm2RsC5dxxmZ9pdOY9cKTISRcHTCmGiUCh4fYyplTwG2mAUbtMTBMHXOgK9QfyXEZr+TkgQ1oUwDA40hEgfIAfj+HuQRaBzAs9eKyUZ5Htx+T3ZODKG8DzOJMANhmGomJVMXPll+hx9UUAlzZrJJ4QNCDG3VEfguu7mcpmcB/gkBOtShhQhchAlu5jlLUgc9ENgyP5gf9+y6LTv+58p5zySkgwzLNOIGc8sEoT1Lc53NMlbCQQuvMxeCME1NNPVVkmH/i3IzzXDtCSA0qQQwZWOCJDY50jsQRjJmkslEOxvTcDRO6zPxOh5xZglKkYLhWM9jMVnkIsTyMT6NBj7IbOCEjm6HxNVVTo2WXqEWJZ1T8rytB6GxizyDkPhWVpBqfiXUtbo/HywYJSpA9kMamNNPZ71R9Hcm+TMHHZNGw3EuraXEUldbfvw25UdOjqOt+JhMwJd7+jSTpZaEiIcaCDwPK83jtWnTkwnunFMtxeL/ge9r4XItt1RNNaj/0GAcV2bR3U5sG3nEh6M61US+Qrfd9Bs31GGulI2GOS/8dgcQZV1w+ApjIxB7TDwF9GcNzJzoA+rD0/8HvPnXQJCt2qFCwbBTfRI7UyXumWVt+HJ9NO4XI++bdsb0YyrqXmlh+AWOLHaLqS5CLQR5EggR3YlcVS9gKeH2hnX8r8Kmi1CAsl36QAAAABJRU5ErkJggg==" border="0" title="AutoConnect menu" alt="AutoConnect menu" />
+            </a>
+    </p>
+
+</footer>
+
+
+<script>
+
+    loadData();                  //Load the data for first time
+    setInterval(loadData, 1000); //Reload the data every X milliseconds.
+
+    //Load the JSON data from API, and then replace the HTML element
+    function loadData(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+
+                var sensorElement = document.getElementById("sensorElement");
+
+                sensorElement.textContent = "";     //Clear all elements in sensorElement div
+
+            
+                var sensorsData = JSON.parse(this.response).data;     //Parse the response to JSON object
+                
+
+                if (Object.keys(sensorsData).length == 0 ) {                          //object is empty
+                    sensorElement.innerHTML = "<p> No sensor connected </p>"
+                    return;
+                }
+
+                for (sensorName of Object.keys(sensorsData)) {                        //iterate through each element and create paragraph for each sensor 
+                    sensorElement.innerHTML += "<p><span class=\"sensor-label\">" +
+                        sensorName + "</span> <span id=\"sensor-value\">" +
+                        sensorsData[sensorName] + " </span> <sup class=\"units\">" + ' ' + " </sup>  </p>";
+
+                }
+
+            }
+        };
+
+
+        xhttp.open("GET", "/getJSON", true);      //request JSON data from URI/getJSON
+        xhttp.send();
+    }
+
+</script>
+</html>
+
+)rawliteral";
+
 // -------------- Helper functions -------------- //
 
 // helper function to make LED blink asynchronously
 // ms : Time for LED to lighten up (millisecond)
-// ms = 0 means checking whether the LED should be turned of or not.  
+// ms = 0 means checking whether the LED should be turned of or not.
 void asyncBlink(unsigned long ms = 0)
 {
   static unsigned long stopTime = 0;
@@ -211,8 +309,8 @@ void asyncBlink(unsigned long ms = 0)
   {
     // Check whether is it time to turn off the LED.
     if (millis() > stopTime)
-    {            
-      digitalWrite(LED_BUILTIN,HIGH); 
+    {
+      digitalWrite(LED_BUILTIN, HIGH);
     }
   }
 }
@@ -221,7 +319,7 @@ void asyncBlink(unsigned long ms = 0)
 void saveSettings()
 {
   File settingsFile = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
-  if(!settingsFile)
+  if (!settingsFile)
   {
     Serial.println("Failed to open file stream. Save failed.");
     return;
@@ -240,10 +338,10 @@ void saveSettings()
 void loadSettings()
 {
   File settingsFile = SPIFFS.open(SETTINGS_FILE, FILE_READ);
-  if(!SPIFFS.exists(SETTINGS_FILE) || !settingsFile) // settings file does not exist, set everything to default.
+  if (!SPIFFS.exists(SETTINGS_FILE) || !settingsFile) // settings file does not exist, set everything to default.
   {
     Serial.println("Settings file does not exist or could not be opened. Creating new setings file.");
-    File newSettingsFile = SPIFFS.open(SETTINGS_FILE,FILE_WRITE);
+    File newSettingsFile = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
     newSettingsFile.println(nodeUUID);
     newSettingsFile.println(nodeName);
     newSettingsFile.println(currentEndPoint);
@@ -255,7 +353,7 @@ void loadSettings()
   }
   else // read existing settings
   {
-    if(SPIFFS.exists(SETTINGS_FILE))
+    if (SPIFFS.exists(SETTINGS_FILE))
     {
       Serial.println("Reading existing settings from file.");
       nodeUUID = settingsFile.readStringUntil('\n');
@@ -277,14 +375,14 @@ void loadSettings()
 // -------------- Web functions -------------- //
 
 // handler to setup initial values for status page
-String handle_Status(AutoConnectAux& aux, PageArgument& args)
+String handle_Status(AutoConnectAux &aux, PageArgument &args)
 {
-  AutoConnectText& title = aux.getElement<AutoConnectText>("header_title");
-  AutoConnectText& reply = aux.getElement<AutoConnectText>("currentReply");
-  AutoConnectText& endpoint = aux.getElement<AutoConnectText>("currentEndpoint");
-  AutoConnectText& lastpost = aux.getElement<AutoConnectText>("lastPOSTreply");
-  AutoConnectText& interval = aux.getElement<AutoConnectText>("currentUpdateRate");
-  AutoConnectText& uptime = aux.getElement<AutoConnectText>("currentUpTime");
+  AutoConnectText &title = aux.getElement<AutoConnectText>("header_title");
+  AutoConnectText &reply = aux.getElement<AutoConnectText>("currentReply");
+  AutoConnectText &endpoint = aux.getElement<AutoConnectText>("currentEndpoint");
+  AutoConnectText &lastpost = aux.getElement<AutoConnectText>("lastPOSTreply");
+  AutoConnectText &interval = aux.getElement<AutoConnectText>("currentUpdateRate");
+  AutoConnectText &uptime = aux.getElement<AutoConnectText>("currentUpTime");
 
   title.value = "<h2>" + nodeName + " status<h2>";
   reply.value = currentJSONReply;
@@ -297,14 +395,14 @@ String handle_Status(AutoConnectAux& aux, PageArgument& args)
 }
 
 // handler to setup initial values for configuration page
-String handle_Config(AutoConnectAux& aux, PageArgument& args)
+String handle_Config(AutoConnectAux &aux, PageArgument &args)
 {
-  AutoConnectInput& name = aux.getElement<AutoConnectInput>("nameInput");
-  AutoConnectInput& uuid = aux.getElement<AutoConnectInput>("uuidInput");
-  AutoConnectInput& latitude = aux.getElement<AutoConnectInput>("latInput");
-  AutoConnectInput& longitude = aux.getElement<AutoConnectInput>("longInput");
-  AutoConnectInput& endpoint = aux.getElement<AutoConnectInput>("urlInput");
-  AutoConnectInput& interval = aux.getElement<AutoConnectInput>("intervalInput");
+  AutoConnectInput &name = aux.getElement<AutoConnectInput>("nameInput");
+  AutoConnectInput &uuid = aux.getElement<AutoConnectInput>("uuidInput");
+  AutoConnectInput &latitude = aux.getElement<AutoConnectInput>("latInput");
+  AutoConnectInput &longitude = aux.getElement<AutoConnectInput>("longInput");
+  AutoConnectInput &endpoint = aux.getElement<AutoConnectInput>("urlInput");
+  AutoConnectInput &interval = aux.getElement<AutoConnectInput>("intervalInput");
 
   name.value = nodeName;
   uuid.value = nodeUUID;
@@ -312,7 +410,7 @@ String handle_Config(AutoConnectAux& aux, PageArgument& args)
   longitude.value = nodeLong;
   endpoint.value = currentEndPoint;
   interval.value = String(currentUpdateRate);
-  
+
   return String();
 }
 
@@ -320,15 +418,15 @@ String handle_Config(AutoConnectAux& aux, PageArgument& args)
 String RedirectPage()
 {
   String html = "<!DOCTYPE html><html>\n";
-  html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  html +="<title>Page not found</title></head>\n";
-  html +="<style>html { font-family: Verdana; display: inline-block; margin: 0px auto; text-align: center;}</style>\n";
-  html +="<body>\n";
-  html +="<h1>404</h1>\n";
-  html +="<p>This page does not exist.</p>\n";
-  html +="<p><a href='/_ac'>Return to main page</a></p>\n";
-  html +="</body>\n";
-  html +="</html>\n";
+  html += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
+  html += "<title>Page not found</title></head>\n";
+  html += "<style>html { font-family: Verdana; display: inline-block; margin: 0px auto; text-align: center;}</style>\n";
+  html += "<body>\n";
+  html += "<h1>404</h1>\n";
+  html += "<p>This page does not exist.</p>\n";
+  html += "<p><a href='/_ac'>Return to main page</a></p>\n";
+  html += "</body>\n";
+  html += "</html>\n";
   return html;
 }
 
@@ -346,16 +444,16 @@ void handle_SaveSettings()
   currentEndPoint = newurl;
 
   unsigned long newinterval = server.arg("intervalInput").toInt();
-  if(currentUpdateRate != newinterval)
+  if (currentUpdateRate != newinterval)
   {
     currentUpdateRate = newinterval;
 
     // reset update interval
-    if(delay_sensor_update.isExpired())
+    if (delay_sensor_update.isExpired())
     {
       delay_sensor_update.restart();
     }
-    delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
+    delay_sensor_update.start(currentUpdateRate, AsyncDelay::MILLIS);
   }
 
   String newName = server.arg("nameInput");
@@ -380,16 +478,27 @@ void handle_SaveSettings()
   Serial.println("Saved location as " + nodeLat + " " + nodeLong);
 
   // redirect back to main page after saving
-  server.sendHeader("Location", "/status",true);
-  server.send(302, "text/plain",""); 
+  server.sendHeader("Location", "/status", true);
+  server.send(302, "text/plain", "");
+}
+
+// API for return JSON data directly from node
+void handle_getJSON()
+{
+  server.send(200, "application/json", currentJSONReply);
+}
+// Handle custom sensor viewer page
+void handle_sensorViewer()
+{
+  server.send(200, "text/html", customPageSensorViewer);
 }
 
 // POST latest JSON string to current URL endpoint
 void sendDataToEndpoint()
 {
-  Serial.println("Sending data to " + currentEndPoint);  
- 
-  HTTPClient http;   
+  Serial.println("Sending data to " + currentEndPoint);
+
+  HTTPClient http;
   http.begin(currentEndPoint);
   http.addHeader("Content-Type", "application/json");
 
@@ -402,7 +511,7 @@ void sendDataToEndpoint()
   lastPOSTreply += " Reply: ";
   lastPOSTreply += response;
 
-  if(httpResponseCode > 0)
+  if (httpResponseCode > 0)
   {
     Serial.println("Response from server:");
     Serial.println(http.errorToString(httpResponseCode));
@@ -416,13 +525,12 @@ void sendDataToEndpoint()
   http.end();
 }
 
-
 // -------------- Sensor Module functions -------------- //
 
 // helper function to scan connected modules on I2C bus
 void scanDevices()
 {
-  for(byte i = 0; i < MAX_SENSORS; i++) // fill modules array with zeroes
+  for (byte i = 0; i < MAX_SENSORS; i++) // fill modules array with zeroes
   {
     modules[i] = 0;
   }
@@ -444,7 +552,7 @@ void scanDevices()
       }
       Serial.println(address, HEX);
       modules[nDevices] = address;
-      nDevices++;      
+      nDevices++;
     }
     else if (error == 4) // unknown error
     {
@@ -456,7 +564,7 @@ void scanDevices()
       Serial.println(address, HEX);
     }
 
-    if(nDevices > MAX_SENSORS) // maximum number of sensors allowed reached
+    if (nDevices > MAX_SENSORS) // maximum number of sensors allowed reached
     {
       Serial.print("Maximum of ");
       Serial.print(MAX_SENSORS);
@@ -487,7 +595,7 @@ void getSensorModuleReading(byte sensorAddr, JsonObject dataObj)
 
   bool endTransmission = false;
 
-  char replyData[MAX_SENSOR_REPLY_LENGTH]= {0};
+  char replyData[MAX_SENSOR_REPLY_LENGTH] = {0};
   char lastSpecifier = 0;
   String dataKey = "";
   String dataValue = "";
@@ -612,12 +720,12 @@ void fetchData()
 
   // obtain information from sensors
   Serial.println("Gathering sensor data.");
-  for(int i = 0; i < MAX_SENSORS; i++)
+  for (int i = 0; i < MAX_SENSORS; i++)
   {
-    if(modules[i] != 0)
+    if (modules[i] != 0)
     {
       asyncBlink(BLINK_TIME);
-      getSensorModuleReading(modules[i],dataObj);
+      getSensorModuleReading(modules[i], dataObj);
       sensorCount++;
     }
     asyncBlink(BLINK_TIME);
@@ -627,7 +735,7 @@ void fetchData()
   Serial.println(" sensors");
 
   // serialize JSON reply string
-  serializeJson(jsonDoc,currentJSONReply);
+  serializeJson(jsonDoc, currentJSONReply);
   // print out JSON output (for debug purposes)
   Serial.println("Serialized data string:");
   Serial.println(currentJSONReply);
@@ -643,9 +751,10 @@ void setup()
   Serial.begin(9600);
   Wire.begin();
 
-  if(!SPIFFS.begin(true)){
-      Serial.println("An Error has occurred while mounting SPIFFS. Rebooting.");
-      ESP.restart();
+  if (!SPIFFS.begin(true))
+  {
+    Serial.println("An Error has occurred while mounting SPIFFS. Rebooting.");
+    ESP.restart();
   }
   Serial.println("SPIFFS mounted.");
   // load settings on boot
@@ -653,22 +762,25 @@ void setup()
 
   // attach handlers
   server.on("/save_settings", handle_SaveSettings);
+  server.on("/getJSON", handle_getJSON);
+  server.on("/sensorviewer", handle_sensorViewer);
 
   // setup AutoConnect
   portalConfig.title = "Main Module v1.0";
   portalConfig.apid = "MainModule-" + String((uint32_t)(ESP.getEfuseMac() >> 32), HEX);
-  portalConfig.apip = IPAddress(192,168,1,1);
-  portalConfig.gateway = IPAddress(192,168,1,1);
+  portalConfig.apip = IPAddress(192, 168, 1, 1);
+  portalConfig.gateway = IPAddress(192, 168, 1, 1);
   portalConfig.bootUri = AC_ONBOOTURI_ROOT;
   Portal.config(portalConfig);
   Portal.load(customPageJSON);
   Portal.home("/status");
-  Portal.on("/status",handle_Status,AC_EXIT_AHEAD);
-  Portal.on("/moduleconfig",handle_Config,AC_EXIT_AHEAD);
+  Portal.on("/status", handle_Status, AC_EXIT_AHEAD);
+  Portal.on("/moduleconfig", handle_Config, AC_EXIT_AHEAD);
   Portal.onNotFound(handle_NotFound);
+  Portal.join({sensorsViewer});
 
   // initialize networking via AutoConnect
-  if(Portal.begin())
+  if (Portal.begin())
   {
     Serial.println("\nNetworking started.");
     Serial.print("IP: ");
@@ -684,7 +796,7 @@ void setup()
   // perform initial device scan
   Serial.println("Performing initial device scan.");
   scanDevices();
-  delay_sensor_update.start(currentUpdateRate,AsyncDelay::MILLIS);
+  delay_sensor_update.start(currentUpdateRate, AsyncDelay::MILLIS);
 }
 
 void loop()
@@ -694,13 +806,13 @@ void loop()
   Portal.handleRequest();
 
   // data update loop
-  if(delay_sensor_update.isExpired())
+  if (delay_sensor_update.isExpired())
   {
     scanDevices();
     fetchData();
-    if((currentJSONReply != NULL || currentJSONReply != "") && (WiFi.status() != WL_IDLE_STATUS) && (WiFi.status() != WL_DISCONNECTED))
+    if ((currentJSONReply != NULL || currentJSONReply != "") && (WiFi.status() != WL_IDLE_STATUS) && (WiFi.status() != WL_DISCONNECTED))
     {
-      if(WiFi.getMode() == WIFI_MODE_STA)
+      if (WiFi.getMode() == WIFI_MODE_STA)
         sendDataToEndpoint();
     }
     delay_sensor_update.restart();
