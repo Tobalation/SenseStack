@@ -2,43 +2,36 @@
 #include <Wire.h>
 #include "protocol.h"
 
+#define BLINK_TIME 500
+
+byte SELF_ADDR = SENSOR_LIGHT_UV;
+byte transmissionCounter = 0; // counter for what string to send
+
 int UVOUT = A0; //Output from the sensor
 int REF_3V3 = A1; //3.3V power on the Arduino board
 float uvIntensity = 0;
 
-#define BLINK_TIME 500
+// -------------- Utility Functions -------------- //
+void asyncBlink(unsigned long ms = 0)
+{
+  static unsigned long stopTime = 0;
 
-byte SELF_ADDR = SENSOR_LIGHT_UV;
-
-void blink() {
-  digitalWrite(LED_BUILTIN,HIGH);
-  delay(BLINK_TIME);
-  digitalWrite(LED_BUILTIN,LOW);
+  if (ms)
+  {
+    stopTime = millis() + ms;
+    digitalWrite(LED_BUILTIN, HIGH);      
+  }
+  else
+  {
+    //Check whether is it time to turn off the LED.
+    if (millis() > stopTime)
+    { 
+      digitalWrite(LED_BUILTIN,LOW);
+    }
+  }
 }
 
-// function that executes whenever data is requested from master
-void sendData() {
-  char replyData[MAX_SENSOR_REPLY_LENGTH];
-  String reply = String(uvIntensity);
-  reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
-  Serial.println(replyData);
-  Wire.write(replyData); // send string on request
-  blink();
-}
-
-void setup(){
-  Wire.begin(SELF_ADDR);
-  Wire.onRequest(sendData);
-  Serial.begin(9600);
-  pinMode(UVOUT, INPUT);
-  pinMode(REF_3V3, INPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
-}
-
-//Takes an average of readings on a given pin
-
-//Returns the average
-
+//Takes an average of readings on a given pin, returns the average
 int averageAnalogRead(int pinToRead) {
   byte numberOfReadings = 8;
   unsigned int runningValue = 0; 
@@ -51,6 +44,42 @@ int averageAnalogRead(int pinToRead) {
 
 float mapfloat(float x, float in_min, float in_max, float out_min, float out_max){
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+// -------------- Protocol Function -------------- //
+// This function will be called when a request on I2C has been made
+// to this module. The main module will continue requesting until
+// the character CH_TERMINATE ('!') is recieved
+
+void sendData() {
+  char replyData[MAX_SENSOR_REPLY_LENGTH];
+  String reply = "";
+
+  switch(transmissionCounter) {
+  case 0:
+    reply = CH_IS_KEY + String("uv intensity") + CH_MORE;
+    transmissionCounter++;
+    break;
+  case 1:
+    reply = CH_IS_VALUE + String(uvIntensity) + " mw/cm^2" + CH_TERMINATE;
+    transmissionCounter = 0;
+    break;
+  }
+  reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
+  Serial.println("Sent " + reply);
+  Wire.write(replyData); // send string on request
+  asyncBlink(BLINK_TIME);
+}
+
+// -------------- Arduino framework main code -------------- //
+
+void setup(){
+  Wire.begin(SELF_ADDR);
+  Wire.onRequest(sendData);
+  Serial.begin(9600);
+  pinMode(UVOUT, INPUT);
+  pinMode(REF_3V3, INPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop(){
@@ -70,5 +99,6 @@ void loop(){
   Serial.print(" / UV Intensity (mW/cm^2): ");
   Serial.print(uvIntensity);
   Serial.println();
-  delay(100);
+  delay(1000);
+  asyncBlink(BLINK_TIME);
 }

@@ -6,42 +6,36 @@
         {
             "name": "Win32",
             "includePath": [
-                "e:/Studium/Universitat/2019-2/SW1/uiot/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/include",
-                "e:/Studium/Universitat/2019-2/SW1/uiot/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/src",
-                "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
-                "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/cores/arduino",
-                "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/variants/standard",
-                "C:/Users/clementichen/.platformio/lib/ArduinoJson_ID64/src",
-                "C:/Users/clementichen/.platformio/lib/ESP Async WebServer_ID306/src",
-                "C:/Users/clementichen/.platformio/lib/IotWebConf_ID5676/src",
-                "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
-                "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/HID/src",
-                "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
-                "C:/Users/clementichen/.platformio/packages/tool-unity",
+                "c:/Users/aywda/Documents/GitHub/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/include",
+                "c:/Users/aywda/Documents/GitHub/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/src",
+                "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "C:/Users/aywda/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "C:/Users/aywda/.platformio/packages/framework-arduino-avr/variants/standard",
+                "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                "C:/Users/aywda/.platformio/packages/tool-unity",
                 ""
             ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "e:/Studium/Universitat/2019-2/SW1/uiot/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/include",
-                    "e:/Studium/Universitat/2019-2/SW1/uiot/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/src",
-                    "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
-                    "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/cores/arduino",
-                    "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/variants/standard",
-                    "C:/Users/clementichen/.platformio/lib/ArduinoJson_ID64/src",
-                    "C:/Users/clementichen/.platformio/lib/ESP Async WebServer_ID306/src",
-                    "C:/Users/clementichen/.platformio/lib/IotWebConf_ID5676/src",
-                    "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
-                    "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/HID/src",
-                    "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                    "C:/Users/clementichen/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
-                    "C:/Users/clementichen/.platformio/packages/tool-unity",
+                    "c:/Users/aywda/Documents/GitHub/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/include",
+                    "c:/Users/aywda/Documents/GitHub/Universal-IoT-hardware-platform-for-sensor-data-collection/Node sensor UV level/src",
+                    "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "C:/Users/aywda/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "C:/Users/aywda/.platformio/packages/framework-arduino-avr/variants/standard",
+                    "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "C:/Users/aywda/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    "C:/Users/aywda/.platformio/packages/tool-unity",
                     ""
                 ]
             },
             "defines": [
-                "PLATFORMIO=40100",
+                "PLATFORMIO=40201",
                 "ARDUINO_AVR_UNO",
                 "F_CPU=16000000L",
                 "ARDUINO_ARCH_AVR",
@@ -52,7 +46,11 @@
             "intelliSenseMode": "clang-x64",
             "cStandard": "c11",
             "cppStandard": "c++11",
-            "compilerPath": "\"C:/Users/clementichen/.platformio/packages/toolchain-atmelavr/bin/avr-gcc.exe\" -mmcu=atmega328p"
+            "compilerPath": "C:/Users/aywda/.platformio/packages/toolchain-atmelavr/bin/avr-gcc.exe",
+            "compilerArgs": [
+                "-mmcu=atmega328p",
+                ""
+            ]
         }
     ],
     "version": 4
