@@ -11,7 +11,7 @@
 #include <ArduinoJson.h>
 
 #include "protocol.h"
-#include "customPages.h"
+#include "customPages.h" 
 
 #define LED_BUILTIN 2
 #define DEFAULT_UPDATE_INTERVAL 60000
@@ -76,6 +76,14 @@ void saveSettings()
     Serial.println("Failed to open file stream. Save failed.");
     return;
   }
+
+  // trim to remove any unncessary whitespace
+  nodeUUID.trim();
+  nodeName.trim();
+  currentEndPoint.trim();
+  nodeLat.trim();
+  nodeLong.trim();
+
   settingsFile.println(nodeUUID);
   settingsFile.println(nodeName);
   settingsFile.println(currentEndPoint);
@@ -114,6 +122,14 @@ void loadSettings()
       currentUpdateRate = settingsFile.readStringUntil('\n').toInt();
       nodeLat = settingsFile.readStringUntil('\n');
       nodeLong = settingsFile.readStringUntil('\n');
+
+      // trim to remove any unncessary whitespace
+      nodeUUID.trim();
+      nodeName.trim();
+      currentEndPoint.trim();
+      nodeLat.trim();
+      nodeLong.trim();
+
       Serial.println("Read UUID: " + nodeUUID);
       Serial.println("Read Name: " + nodeName);
       Serial.println("Read EndPoint: " + currentEndPoint);
