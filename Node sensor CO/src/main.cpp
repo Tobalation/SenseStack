@@ -44,7 +44,7 @@ void sendData()
 
   switch(transmissionCounter) {
   case 0:
-    reply = CH_IS_KEY + String("co density") + CH_MORE;
+    reply = CH_IS_KEY + String("co_density") + CH_MORE;
     transmissionCounter++;
     break;
   case 1:

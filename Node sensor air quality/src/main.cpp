@@ -52,7 +52,7 @@ void sendData() {
     transmissionCounter++;
     break;
   case 2:
-    reply = CH_IS_KEY + String("pm2.5") + CH_MORE;
+    reply = CH_IS_KEY + String("pm2_5") + CH_MORE;
     transmissionCounter++;
     break;
   case 3:

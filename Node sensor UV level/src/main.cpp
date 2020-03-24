@@ -57,7 +57,7 @@ void sendData() {
 
   switch(transmissionCounter) {
   case 0:
-    reply = CH_IS_KEY + String("uv intensity") + CH_MORE;
+    reply = CH_IS_KEY + String("uv_intensity") + CH_MORE;
     transmissionCounter++;
     break;
   case 1:

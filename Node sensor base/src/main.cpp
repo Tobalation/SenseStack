@@ -39,13 +39,13 @@ void sendData()
 
   switch(transmissionCounter) {
   case 0:
-    reply = CH_IS_KEY + String("testKey") + CH_MORE;
+    reply = CH_IS_KEY + String("test_key") + CH_MORE;
     // ALWAYS set to the next part of transmission
     transmissionCounter++;
     break;
   
   case 1:
-    reply = CH_IS_VALUE + String("testValue") + CH_TERMINATE;
+    reply = CH_IS_VALUE + String("test_value") + CH_TERMINATE;
     // ALWAYS set counter to 0 when done sending everything
     transmissionCounter = 0;
     break;
