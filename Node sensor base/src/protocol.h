@@ -5,7 +5,7 @@
 #define MAX_SENSOR_REPLY_LENGTH 32
 
 // JSON max reply length
-#define MAX_JSON_REPLY 256
+#define MAX_JSON_REPLY 2048
 
 // Address range for sensor modules.
 #define TOP_ADDRESS 127

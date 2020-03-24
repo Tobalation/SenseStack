@@ -2,3 +2,11 @@
 *.code-workspace
 
 .DS_Store
+
+Node sensor air quality/.pio/build/project.checksum
+
+Node sensor air quality/.vscode/
+
+*.checksum
+
+Node sensor UV level/.vscode/
