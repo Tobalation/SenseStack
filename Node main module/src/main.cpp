@@ -13,10 +13,9 @@
 #include "protocol.h"
 #include "customPages.h" 
 
-#define LED_BUILTIN 2
+#define LED_TICKER 33
 #define DEFAULT_UPDATE_INTERVAL 60000
 #define LIVE_SENSOR_INTERVAL 1000
-#define BLINK_TIME 500
 #define SETTINGS_FILE "/settings.txt"
 #define DATA_TRANSMISSION_TIMEOUT 20 // arbitrary number
 
@@ -39,33 +38,12 @@ unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 WebServer server;           // HTTP server to serve web UI
 AutoConnect Portal(server); // AutoConnect handler object
 AutoConnectConfig portalConfig("MainModuleAP", "12345678");
-AutoConnectAux sensorsViewer("/sensorviewer", "Sensor viewer", true);
+AutoConnectAux sensorsViewer("/sensorviewer", "Live sensor viewer", true);
 
 // NOTE: the data for the custom pages are in the customPages.h header file
 
 
 // -------------- Helper functions -------------- //
-
-// helper function to make LED blink asynchronously
-// ms : Time for LED to lighten up (millisecond)
-// ms = 0 means checking whether the LED should be turned of or not.
-void asyncBlink(unsigned long ms = 0)
-{
-  static unsigned long stopTime = 0;
-  if (ms)
-  {
-    stopTime = millis() + ms;
-    digitalWrite(LED_BUILTIN, LOW); // LOW = LED lights up on ESP 32 Lite board.
-  }
-  else
-  {
-    // Check whether is it time to turn off the LED.
-    if (millis() > stopTime)
-    {
-      digitalWrite(LED_BUILTIN, HIGH);
-    }
-  }
-}
 
 // helper function to write settings to file in SPIFFS.
 void saveSettings()
@@ -185,16 +163,7 @@ String handle_Config(AutoConnectAux &aux, PageArgument &args)
 // 404 page HTML
 String RedirectPage()
 {
-  String html = "<!DOCTYPE html><html>\n";
-  html += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  html += "<title>Page not found</title></head>\n";
-  html += "<style>html { font-family: Verdana; display: inline-block; margin: 0px auto; text-align: center;}</style>\n";
-  html += "<body>\n";
-  html += "<h1>404</h1>\n";
-  html += "<p>This page does not exist.</p>\n";
-  html += "<p><a href='/_ac'>Return to main page</a></p>\n";
-  html += "</body>\n";
-  html += "</html>\n";
+  String html = notFoundPage;
   return html;
 }
 
@@ -495,11 +464,9 @@ void fetchData()
   {
     if (modules[i] != 0)
     {
-      asyncBlink(BLINK_TIME);
       getSensorModuleReading(modules[i], dataObj);
       sensorCount++;
     }
-    asyncBlink(BLINK_TIME);
   }
   Serial.print("Read from ");
   Serial.print(sensorCount);
@@ -517,8 +484,7 @@ void fetchData()
 
 void setup()
 {
-  // init serial, I2C, SPIFFS and status LED
-  pinMode(LED_BUILTIN, OUTPUT);
+  // initialize serial, I2C and SPIFFS
   Serial.begin(9600);
   Wire.begin();
 
@@ -528,6 +494,7 @@ void setup()
     ESP.restart();
   }
   Serial.println("SPIFFS mounted.");
+
   // load settings on boot
   loadSettings();
 
@@ -542,6 +509,9 @@ void setup()
   portalConfig.apip = IPAddress(192, 168, 1, 1);
   portalConfig.gateway = IPAddress(192, 168, 1, 1);
   portalConfig.bootUri = AC_ONBOOTURI_ROOT;
+  portalConfig.ticker = true;
+  portalConfig.tickerPort = LED_TICKER;
+  portalConfig.tickerOn = HIGH;
   Portal.config(portalConfig);
   Portal.load(customPageJSON);
   Portal.home("/status");
@@ -600,5 +570,4 @@ void loop()
     }
     delay_sensor_update.restart();
   }
-  asyncBlink(BLINK_TIME);
 }

@@ -2,8 +2,6 @@
 #include <Wire.h>
 #include "protocol.h"
 
-#define BLINK_TIME 500
-
 byte SELF_ADDR = SENSOR_LIGHT_UV;
 byte transmissionCounter = 0; // counter for what string to send
 
@@ -12,24 +10,6 @@ int REF_3V3 = A1; //3.3V power on the Arduino board
 float uvIntensity = 0;
 
 // -------------- Utility Functions -------------- //
-void asyncBlink(unsigned long ms = 0)
-{
-  static unsigned long stopTime = 0;
-
-  if (ms)
-  {
-    stopTime = millis() + ms;
-    digitalWrite(LED_BUILTIN, HIGH);      
-  }
-  else
-  {
-    //Check whether is it time to turn off the LED.
-    if (millis() > stopTime)
-    { 
-      digitalWrite(LED_BUILTIN,LOW);
-    }
-  }
-}
 
 //Takes an average of readings on a given pin, returns the average
 int averageAnalogRead(int pinToRead) {
@@ -68,7 +48,6 @@ void sendData() {
   reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
   Serial.println("Sent " + reply);
   Wire.write(replyData); // send string on request
-  asyncBlink(BLINK_TIME);
 }
 
 // -------------- Arduino framework main code -------------- //
@@ -79,7 +58,6 @@ void setup(){
   Serial.begin(9600);
   pinMode(UVOUT, INPUT);
   pinMode(REF_3V3, INPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop(){
@@ -100,5 +78,4 @@ void loop(){
   Serial.print(uvIntensity);
   Serial.println();
   delay(1000);
-  asyncBlink(BLINK_TIME);
 }

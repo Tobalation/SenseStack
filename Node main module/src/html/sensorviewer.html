@@ -34,9 +34,9 @@
 </head>
 
 <body>
-    <h2>SenseStack Sensor Viewer</h2>
+    <h2>Live connected sensor viewer</h2>
     <div id=sensorElement>
-        <p>If you see this, something went wrong.</p>
+        <p>Getting sensor information...</p>
     </div>
 </body>
 
@@ -70,7 +70,7 @@
                 
 
                 if (Object.keys(sensorsData).length == 0 ) {                          //object is empty
-                    sensorElement.innerHTML = "<p> No sensor connected </p>"
+                    sensorElement.innerHTML = "<p> No sensors connected. </p>"
                     return;
                 }
 

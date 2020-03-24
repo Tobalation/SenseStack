@@ -3,8 +3,6 @@
 #include <Wire.h>
 #include "protocol.h"
 
-#define BLINK_TIME 500
-
 byte SELF_ADDR = SENSOR_PM25;
 byte transmissionCounter = 0; // counter for what string to send
 
@@ -12,26 +10,6 @@ SoftwareSerial mySerial(2,3); // RX, TX
 unsigned int pm1 = 0;
 unsigned int pm2_5 = 0;
 unsigned int pm10 = 0;
-
-// -------------- Utility Functions -------------- //
-void asyncBlink(unsigned long ms = 0)
-{
-  static unsigned long stopTime = 0;
-
-  if (ms)
-  {
-    stopTime = millis() + ms;
-    digitalWrite(LED_BUILTIN, HIGH);      
-  }
-  else
-  {
-    //Check whether is it time to turn off the LED.
-    if (millis() > stopTime)
-    { 
-      digitalWrite(LED_BUILTIN,LOW);
-    }
-  }
-}
 
 // -------------- Protocol Function -------------- //
 // This function will be called when a request on I2C has been made
@@ -71,7 +49,6 @@ void sendData() {
   reply.toCharArray(replyData, MAX_SENSOR_REPLY_LENGTH);
   Serial.println("Sent " + reply);
   Wire.write(replyData); // send string on request
-  asyncBlink(BLINK_TIME);
 }
 
 // -------------- Arduino framework main code -------------- //
@@ -80,9 +57,8 @@ void setup() {
   Wire.begin(SELF_ADDR);
   Wire.onRequest(sendData);
   Serial.begin(9600);
-  while (!Serial) ;
+  while (!Serial);
   mySerial.begin(9600);
-  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop() {

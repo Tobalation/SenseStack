@@ -196,9 +196,9 @@ const char customPageSensorViewer[] PROGMEM = R"rawliteral(
 </head>
 
 <body>
-    <h2>SenseStack Sensor Viewer</h2>
+    <h2>Live connected sensor viewer</h2>
     <div id=sensorElement>
-        <p>Getting sensor info...</p>
+        <p>Getting sensor information...</p>
     </div>
 </body>
 
@@ -253,5 +253,30 @@ const char customPageSensorViewer[] PROGMEM = R"rawliteral(
 
 </script>
 </html>
+)rawliteral";
 
+// 404 page
+const char notFoundPage[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>
+        Page not found
+    </title>
+  </head>
+  <style>
+    html { 
+        font-family: Verdana; 
+        display: inline-block; 
+        margin: 0px auto; 
+        text-align: center;
+    }
+  </style>
+  <body>
+  <h1>404</h1>
+  <p>This page does not exist.</p>
+  <p><a href='/_ac'>Return to main page</a></p>
+  </body>
+</html>
 )rawliteral";
