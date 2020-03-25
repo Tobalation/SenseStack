@@ -155,6 +155,11 @@ const static char customPageJSON[] PROGMEM = R"raw(
         "menu": true,
         "element": [
             {
+                "name": "viewcss",
+                "type": "ACStyle",
+                "value": "p { font-size: 32px; }"
+            },
+            {
                 "name": "header_title",
                 "type": "ACText",
                 "style": "color:#06697c;border-bottom:5px solid black",
