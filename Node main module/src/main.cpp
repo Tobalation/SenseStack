@@ -38,9 +38,9 @@ unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 WebServer server;           // HTTP server to serve web UI
 AutoConnect Portal(server); // AutoConnect handler object
 AutoConnectConfig portalConfig("MainModuleAP", "12345678");
-AutoConnectAux sensorsViewer("/sensorviewer", "Live sensor viewer", true);
 
 // NOTE: the data for the custom pages are in the customPages.h header file
+AutoConnectElement viewerHTML("viewerhtml", sensorViewerHTML, AC_Tag_None); // script and HTML for live sensor view
 
 
 // -------------- Helper functions -------------- //
@@ -160,17 +160,24 @@ String handle_Config(AutoConnectAux &aux, PageArgument &args)
   return String();
 }
 
-// 404 page HTML
-String RedirectPage()
+// Handle custom sensor viewer page
+String handle_sensorViewer(AutoConnectAux &aux, PageArgument &args)
 {
-  String html = notFoundPage;
-  return html;
+  sensorViewMode = false;
+  return String();
+}
+
+// used for updating live sensor view page
+void handle_getSensorJSON()
+{
+  sensorViewMode = true;
+  server.send(200, "application/json", currentJSONReply);
 }
 
 // handle 404
 void handle_NotFound()
 {
-  server.send(404, "text/html", RedirectPage());
+  server.send(404, "text/html", notFoundPage);
 }
 
 // save the new settings from config page
@@ -217,20 +224,6 @@ void handle_SaveSettings()
   // redirect back to main page after saving
   server.sendHeader("Location", "/status", true);
   server.send(302, "text/plain", "");
-}
-
-// used for updating live sensor view page
-void handle_getSensorJSON()
-{
-  sensorViewMode = true;
-  server.send(200, "application/json", currentJSONReply);
-}
-
-// Handle custom sensor viewer page
-void handle_sensorViewer()
-{
-  sensorViewMode = true;
-  server.send(200, "text/html", customPageSensorViewer);
 }
 
 // POST latest JSON string to current URL endpoint
@@ -498,12 +491,11 @@ void setup()
   // load settings on boot
   loadSettings();
 
-  // attach handlers
+  // attach handlers for HTTPserver
   server.on("/save_settings", handle_SaveSettings);
   server.on("/getJSON", handle_getSensorJSON);
-  server.on("/sensorviewer", handle_sensorViewer);
 
-  // setup AutoConnect
+  // setup AutoConnect with a configuration
   portalConfig.title = "Main Module v1.0";
   portalConfig.apid = "MainModule-" + String((uint32_t)(ESP.getEfuseMac() >> 32), HEX);
   portalConfig.apip = IPAddress(192, 168, 1, 1);
@@ -513,12 +505,23 @@ void setup()
   portalConfig.tickerPort = LED_TICKER;
   portalConfig.tickerOn = HIGH;
   Portal.config(portalConfig);
-  Portal.load(customPageJSON);
+
+  // load custom page JSON and build pages into memory
+  if(!Portal.load(customPageJSON))
+  {
+    Serial.println("HTML page generation failed, rebooting.");
+    ESP.restart();
+  }
+  // inject live view HTML into sensor viewer page
+  AutoConnectAux* viewerPage = Portal.aux("/sensorviewer");
+  viewerPage->add(viewerHTML);
+
+  // set URLs and handlers
   Portal.home("/status");
   Portal.on("/status", handle_Status, AC_EXIT_AHEAD);
   Portal.on("/moduleconfig", handle_Config, AC_EXIT_AHEAD);
+  Portal.on("/sensorviewer", handle_sensorViewer, AC_EXIT_LATER);
   Portal.onNotFound(handle_NotFound);
-  Portal.join({sensorsViewer});
 
   // initialize networking via AutoConnect
   if (Portal.begin())

@@ -40,12 +40,6 @@
                 "label": "Longitude"
             },
             {
-                "name": "currentLocBtn",
-                "type": "ACButton",
-                "value": "Use current location",
-                "action": "function getPos() {navigator.geolocation.getCurrentPosition(set);}function set(pos){document.getElementById('latInput').value = pos.coords.latitude; document.getElementById('longInput').value = pos.coords.longitude;} getPos();"
-            },
-            {
                 "name": "header_url",
                 "type": "ACText",
                 "value": "<h2>Data endpoint configuration<h2>"
@@ -148,6 +142,19 @@
                 "name": "currentUpTime",
                 "type": "ACText",
                 "value": "0"
+            }
+        ]
+    },
+    {
+        "title": "Live sensor viewer",
+        "uri": "/sensorviewer",
+        "menu": true,
+        "element": [
+            {
+                "name": "header_title",
+                "type": "ACText",
+                "style": "color:#06697c;border-bottom:5px solid black",
+                "value": "<h2>Currently connected sensors<h2>"
             }
         ]
     }
