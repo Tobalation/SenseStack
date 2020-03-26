@@ -8,16 +8,22 @@
 #include <HTTPClient.h>
 #include <WebServer.h>
 #include <AutoConnect.h>
+#include <AutoConnectCredential.h>
 #include <ArduinoJson.h>
 
 #include "protocol.h"
 #include "customPages.h" 
 
 #define LED_TICKER 33
+#define BUTTON_PIN 32
 #define DEFAULT_UPDATE_INTERVAL 60000
 #define LIVE_SENSOR_INTERVAL 1000
 #define SETTINGS_FILE "/settings.txt"
 #define DATA_TRANSMISSION_TIMEOUT 20 // arbitrary number
+#define REBOOT_BUTTON_HOLD_DURATION 3000
+#define FACTORY_RESET_BUTTON_HOLD_DURATION 10000
+
+
 
 byte modules[MAX_SENSORS];      // array with address listings of connected sensor modules
 AsyncDelay delay_sensor_update; // delay timer for asynchronous update interval
@@ -33,6 +39,7 @@ String nodeUUID = "1234567890";
 String nodeLat = "N/A";
 String nodeLong = "N/A";
 String currentEndPoint = "https://yourgisdb.com/apiforposting/";
+String nodeLEDSetting = "On";
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 
 WebServer server;           // HTTP server to serve web UI
@@ -68,9 +75,89 @@ void saveSettings()
   settingsFile.println(currentUpdateRate);
   settingsFile.println(nodeLat);
   settingsFile.println(nodeLong);
+  settingsFile.println(nodeLEDSetting);
   Serial.println("Wrote existing settings to save file.");
   settingsFile.close();
 }
+
+// Delete all Wi-Fi credentials that have been saved with AutoConnect Library.
+void deleteAllCredentials(void) {
+  AutoConnectCredential credential;
+  station_config_t config;
+  uint8_t ent = credential.entries();
+
+  while (ent--) {
+    credential.load((int8_t) 0 , &config);
+    credential.del((const char*)&config.ssid[0]);
+  }
+}
+
+// Reset configuration in config page to default parameters.
+void clearSettings(){
+  Serial.println("REMOVING ALL SETTINGS..");
+  WiFi.disconnect(true,true);
+  for (int i = 0; i < 3 ; i++){
+    digitalWrite(LED_TICKER,HIGH);
+    delay(200);
+    digitalWrite(LED_TICKER,LOW);
+    delay(200);
+  }
+  deleteAllCredentials();         
+  SPIFFS.remove(SETTINGS_FILE);
+}
+
+// helper function to make LED blink asynchronously	
+// ms : Time for LED to lighten up (millisecond)	
+// ms = 0 means checking whether the LED should be turned of or not.	
+void asyncBlink(unsigned long ms = 0)	
+{	
+  static unsigned long stopTime = 0;	
+  if (ms)	
+  {	
+    stopTime = millis() + ms;	
+    digitalWrite(LED_TICKER, HIGH); 
+  }	
+  else	
+  {	
+    // Check whether is it time to turn off the LED.	
+    if (millis() > stopTime)	
+    {	
+      digitalWrite(LED_TICKER, LOW);	
+    }	
+  }	
+}
+
+void checkButton(){
+  static unsigned long pushedDownTime = NULL;
+  if (pushedDownTime == NULL && digitalRead(BUTTON_PIN) == LOW){  //Button pressed
+    pushedDownTime = millis();
+    
+   
+  }else if (pushedDownTime != NULL && digitalRead(BUTTON_PIN) == HIGH ){                     //Button released
+    unsigned int pressingDuration = millis() - pushedDownTime;
+    
+    if (pressingDuration > FACTORY_RESET_BUTTON_HOLD_DURATION){
+      clearSettings();
+      ESP.restart();
+    }
+    else if (pressingDuration > REBOOT_BUTTON_HOLD_DURATION){
+      Serial.println("Restarting..");
+      delay(3000);
+      ESP.restart();
+    }
+
+    pushedDownTime = NULL;      
+  }
+
+  // indicate the led to let user know when to release button
+  if (pushedDownTime != NULL  && digitalRead(BUTTON_PIN) == LOW){
+    unsigned int pressingDuration = millis() - pushedDownTime;
+      if (pressingDuration > REBOOT_BUTTON_HOLD_DURATION && pressingDuration < FACTORY_RESET_BUTTON_HOLD_DURATION){
+        asyncBlink(FACTORY_RESET_BUTTON_HOLD_DURATION - pressingDuration);
+      }
+  }
+}
+
 
 // helper function to load settings from save file in SPIFFS.
 void loadSettings()
@@ -86,6 +173,7 @@ void loadSettings()
     newSettingsFile.println(currentUpdateRate);
     newSettingsFile.println(nodeLat);
     newSettingsFile.println(nodeLong);
+    newSettingsFile.println(nodeLEDSetting);
     Serial.println("Wrote default settings to file.");
     newSettingsFile.close();
   }
@@ -100,6 +188,7 @@ void loadSettings()
       currentUpdateRate = settingsFile.readStringUntil('\n').toInt();
       nodeLat = settingsFile.readStringUntil('\n');
       nodeLong = settingsFile.readStringUntil('\n');
+      nodeLEDSetting = settingsFile.readStringUntil('\n');
 
       // trim to remove any unncessary whitespace
       nodeUUID.trim();
@@ -107,12 +196,15 @@ void loadSettings()
       currentEndPoint.trim();
       nodeLat.trim();
       nodeLong.trim();
+      nodeLEDSetting.trim();
 
       Serial.println("Read UUID: " + nodeUUID);
       Serial.println("Read Name: " + nodeName);
       Serial.println("Read EndPoint: " + currentEndPoint);
       Serial.println("Read UpdateRate: " + String(currentUpdateRate));
       Serial.println("Read Position: " + nodeLat + "," + nodeLong);
+      Serial.println("Read LED Setting: " + nodeLEDSetting);
+
     }
   }
   settingsFile.close();
@@ -149,6 +241,7 @@ String handle_Config(AutoConnectAux &aux, PageArgument &args)
   AutoConnectInput &longitude = aux.getElement<AutoConnectInput>("longInput");
   AutoConnectInput &endpoint = aux.getElement<AutoConnectInput>("urlInput");
   AutoConnectInput &interval = aux.getElement<AutoConnectInput>("intervalInput");
+  AutoConnectRadio &ledSetting = aux.getElement<AutoConnectRadio>("ledSettingRadio");
 
   name.value = nodeName;
   uuid.value = nodeUUID;
@@ -156,6 +249,11 @@ String handle_Config(AutoConnectAux &aux, PageArgument &args)
   longitude.value = nodeLong;
   endpoint.value = currentEndPoint;
   interval.value = String(currentUpdateRate);
+  if (nodeLEDSetting == "On"){  
+    ledSetting.checked = 1;
+  }else{
+    ledSetting.checked = 2;
+  }
 
   return String();
 }
@@ -212,6 +310,9 @@ void handle_SaveSettings()
   String newLong = server.arg("longInput");
   nodeLong = newLong;
 
+  String newNodeLEDSetting = server.arg("ledSettingRadio");
+  nodeLEDSetting = newNodeLEDSetting;
+
   // save settings to file
   saveSettings();
 
@@ -220,6 +321,8 @@ void handle_SaveSettings()
   Serial.println("Saved node name as " + nodeName);
   Serial.println("Saved UUID as " + nodeUUID);
   Serial.println("Saved location as " + nodeLat + " " + nodeLong);
+  Serial.println("Saved LED setting as " + nodeLEDSetting);
+
 
   // redirect back to main page after saving
   server.sendHeader("Location", "/status", true);
@@ -486,6 +589,13 @@ void setup()
 
   Serial.println("Running at " + String(getCpuFrequencyMhz()) + " MHz");
 
+  // setup SenseStack IO pins
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(LED_TICKER, OUTPUT);
+
+  // turn on LED on to indicate booting process
+  digitalWrite(LED_TICKER, HIGH);
+
   if (!SPIFFS.begin(true))
   {
     Serial.println("An Error has occurred while mounting SPIFFS. Rebooting.");
@@ -547,6 +657,9 @@ void setup()
   scanDevices();
   delay_sensor_update.start(currentUpdateRate, AsyncDelay::MILLIS);
   delay_sensor_view.start(LIVE_SENSOR_INTERVAL, AsyncDelay::MILLIS);
+
+  // Turn off LED to indicate finished of booting process
+  digitalWrite(LED_TICKER, LOW);
 }
 
 void loop()
@@ -554,6 +667,12 @@ void loop()
   // handle web UI
   server.handleClient();
   Portal.handleRequest();
+
+  // handle button press
+  checkButton();
+
+  // handle LED state
+  asyncBlink();
 
   // if we are viewing the live sensor view page
   if(delay_sensor_view.isExpired() && sensorViewMode == true)
@@ -573,8 +692,13 @@ void loop()
     fetchData();
     if ((currentJSONReply != NULL || currentJSONReply != "") && (WiFi.status() != WL_IDLE_STATUS) && (WiFi.status() != WL_DISCONNECTED))
     {
-      if (WiFi.getMode() == WIFI_MODE_STA)
+      if (WiFi.getMode() == WIFI_MODE_STA){
         sendDataToEndpoint();
+
+        if (nodeLEDSetting == "On"){
+          asyncBlink(200);
+        }
+      }
     }
     delay_sensor_update.restart();
   }

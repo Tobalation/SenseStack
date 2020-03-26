@@ -74,6 +74,15 @@ const static char customPageJSON[] PROGMEM = R"raw(
                 "label": "Update Interval (ms)"
             },
             {
+                "name": "ledSettingRadio",
+                "type": "ACRadio",
+                "label": "Blink LED when sending the data",
+                "value":[
+                    "On",
+                    "Off"
+                ]
+            },
+            {
                 "name": "save",
                 "type": "ACSubmit",
                 "value": "Save settings",
