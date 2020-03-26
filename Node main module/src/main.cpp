@@ -477,9 +477,14 @@ void fetchData()
 
 void setup()
 {
+  // underclock from 240 MHz to 80 MHz for power saving
+  setCpuFrequencyMhz(80);
+
   // initialize serial, I2C and SPIFFS
   Serial.begin(9600);
   Wire.begin();
+
+  Serial.println("Running at " + String(getCpuFrequencyMhz()) + " MHz");
 
   if (!SPIFFS.begin(true))
   {
