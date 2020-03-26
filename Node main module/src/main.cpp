@@ -14,6 +14,7 @@
 #include "protocol.h"
 #include "customPages.h" 
 
+// Time is in milliseconds
 #define LED_TICKER 33
 #define BUTTON_PIN 32
 #define DEFAULT_UPDATE_INTERVAL 60000
@@ -127,6 +128,7 @@ void asyncBlink(unsigned long ms = 0)
   }	
 }
 
+// Button input checking function
 void checkButton(){
   static unsigned long pushedDownTime = NULL;
   if (pushedDownTime == NULL && digitalRead(BUTTON_PIN) == LOW){              // Button being pressed
@@ -153,8 +155,6 @@ void checkButton(){
 
     pushedDownTime = NULL;      
   }
-
-
 }
 
 
@@ -698,11 +698,12 @@ void loop()
   {
     scanDevices();
     fetchData();
+    // Send latest data if it is possible to do so
     if ((currentJSONReply != NULL || currentJSONReply != "") && (WiFi.status() != WL_IDLE_STATUS) && (WiFi.status() != WL_DISCONNECTED))
     {
       if (WiFi.getMode() == WIFI_MODE_STA){
         sendDataToEndpoint();
-
+        // blink once data is sent
         if (nodeLEDSetting == "On"){
           asyncBlink(200);
         }
