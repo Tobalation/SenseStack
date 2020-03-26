@@ -447,8 +447,8 @@ void fetchData()
   nodeLong.trim();
   jsonDoc["uuid"] = nodeUUID;
   jsonDoc["name"] = nodeName;
-  jsonDoc["lat"] = nodeLat;
-  jsonDoc["long"] = nodeLong;
+  jsonDoc["lat"] = nodeLat.toDouble();
+  jsonDoc["long"] = nodeLong.toDouble();
   JsonObject dataObj = jsonDoc.createNestedObject("data");
 
   // obtain information from sensors
