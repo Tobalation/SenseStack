@@ -181,9 +181,20 @@ const static char customPageJSON[] PROGMEM = R"raw(
 
 // Live sensor viewing HTML and JS
 const char sensorViewerHTML[] PROGMEM = R"rawliteral(
-<div id=sensorElement>
+<div id=sensorStatus>
     <p>Getting sensor information...</p>
 </div>
+<div class="container">
+    <table id="sensorDataTable" class="info" style="border:none; font-size: 20px;" >
+        <tbody>
+            <tr>
+
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+
 <script>
     loadData();                  //Load the data for first time
     setInterval(loadData, 1000); //Reload the data every X milliseconds.
@@ -192,18 +203,33 @@ const char sensorViewerHTML[] PROGMEM = R"rawliteral(
         var xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function () {
             if (this.readyState == 4 && this.status == 200) {
-                var sensorElement = document.getElementById("sensorElement");
-                sensorElement.textContent = "";     //Clear all elements in sensorElement div
-                var sensorsData = JSON.parse(this.response).data;     //Parse the response to JSON object
-                if (Object.keys(sensorsData).length == 0 ) {                          //object is empty
-                    sensorElement.innerHTML = "<p> No sensors connected. </p>"
+                var sensorStatus = document.getElementById("sensorStatus");
+                var sensorTable = document.getElementById("sensorDataTable");
+             
+                var sensorsData = JSON.parse(this.response).data;                   //Parse the response to JSON object
+                if (Object.keys(sensorsData).length == 0 ) {                        //object is empty
+                    sensorStatus.style.display = "block";                          //Display the status text div
+                    sensorTable.style.display = "none"                              //Hide the table
+                    sensorStatus.textContent = "";                                 //Clear all elements in sensorElement div
+                    sensorStatus.innerHTML = "<p> No sensors connected. </p>"
                     return;
+                }else{
+                    sensorStatus.style.display = "none";                           //Hide the status text div
+                    sensorTable.style.display = "block"                             //Show the table
+                    sensorTable.innerHTML = ""                                      //Clear the table
+
+                    for (sensorName of Object.keys(sensorsData)) {                       //iterate through each element and create table row for each sensor 
+                        var row = sensorTable.insertRow(0);
+                        var cell1 = row.insertCell(0);
+                        var cell2 = row.insertCell(1);
+                        cell1.style.fontWeight = "bold"
+                        cell2.style.paddingLeft = "40px";
+                        cell1.innerHTML = sensorName;
+                        cell2.innerHTML = sensorsData[sensorName];
+                     }
+
                 }
-                for (sensorName of Object.keys(sensorsData)) {                        //iterate through each element and create paragraph for each sensor 
-                    sensorElement.innerHTML += "<p><span class=\"sensor-label\">" +
-                        sensorName + "</span> <span id=\"sensor-value\">" +
-                        sensorsData[sensorName] + " </span> <sup class=\"units\">" + ' ' + " </sup>  </p>";
-                }
+             
             }
         };
         xhttp.open("GET", "/getJSON", true);      //request JSON data from URI/getJSON
