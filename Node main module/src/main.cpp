@@ -271,6 +271,14 @@ void handle_getSensorJSON()
   server.send(200, "application/json", currentJSONReply);
 }
 
+// handle redirect to home
+void handle_redirect()
+{
+  // redirect back to main page
+  server.sendHeader("Location", "/_ac", true);
+  server.send(302, "text/plain", "");
+}
+
 // handle 404
 void handle_NotFound()
 {
@@ -606,6 +614,7 @@ void setup()
   loadSettings();
 
   // attach handlers for HTTPserver
+  server.on("/", handle_redirect);
   server.on("/save_settings", handle_SaveSettings);
   server.on("/getJSON", handle_getSensorJSON);
 
