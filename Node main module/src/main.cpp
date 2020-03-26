@@ -129,11 +129,16 @@ void asyncBlink(unsigned long ms = 0)
 
 void checkButton(){
   static unsigned long pushedDownTime = NULL;
-  if (pushedDownTime == NULL && digitalRead(BUTTON_PIN) == LOW){  //Button pressed
+  if (pushedDownTime == NULL && digitalRead(BUTTON_PIN) == LOW){              // Button being pressed
     pushedDownTime = millis();
     
-   
-  }else if (pushedDownTime != NULL && digitalRead(BUTTON_PIN) == HIGH ){                     //Button released
+  }else if (pushedDownTime != NULL  && digitalRead(BUTTON_PIN) == LOW){       // Pressing the button, change the LED light according to the pressing time.
+    unsigned int pressingDuration = millis() - pushedDownTime;
+      if (pressingDuration > REBOOT_BUTTON_HOLD_DURATION && pressingDuration < FACTORY_RESET_BUTTON_HOLD_DURATION){
+        asyncBlink(FACTORY_RESET_BUTTON_HOLD_DURATION - pressingDuration);
+      }
+  }
+  else if (pushedDownTime != NULL && digitalRead(BUTTON_PIN) == HIGH ){       // Button released, check the pressed duration and peform action
     unsigned int pressingDuration = millis() - pushedDownTime;
     
     if (pressingDuration > FACTORY_RESET_BUTTON_HOLD_DURATION){
@@ -149,13 +154,7 @@ void checkButton(){
     pushedDownTime = NULL;      
   }
 
-  // indicate the led to let user know when to release button
-  if (pushedDownTime != NULL  && digitalRead(BUTTON_PIN) == LOW){
-    unsigned int pressingDuration = millis() - pushedDownTime;
-      if (pressingDuration > REBOOT_BUTTON_HOLD_DURATION && pressingDuration < FACTORY_RESET_BUTTON_HOLD_DURATION){
-        asyncBlink(FACTORY_RESET_BUTTON_HOLD_DURATION - pressingDuration);
-      }
-  }
+
 }
 
 
