@@ -7,7 +7,9 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
 #include <AutoConnect.h>
+#include "HTTPUpdateServer.h"
 #include <AutoConnectCredential.h>
 #include <ArduinoJson.h>
 
@@ -16,14 +18,14 @@
 
 // Time is in milliseconds
 #define LED_TICKER 33
+#define LED_BUILTIN 2
 #define BUTTON_PIN 32
 #define DEFAULT_UPDATE_INTERVAL 60000
 #define LIVE_SENSOR_INTERVAL 1000
 #define SETTINGS_FILE "/settings.txt"
-#define DATA_TRANSMISSION_TIMEOUT 20 // arbitrary number
+#define DATA_TRANSMISSION_TIMEOUT 32 // arbitrary number
 #define REBOOT_BUTTON_HOLD_DURATION 3000
 #define FACTORY_RESET_BUTTON_HOLD_DURATION 10000
-
 
 
 byte modules[MAX_SENSORS];      // array with address listings of connected sensor modules
@@ -44,6 +46,8 @@ String nodeLEDSetting = "On";
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 
 WebServer server;           // HTTP server to serve web UI
+HTTPUpdateServer updateServer(true); // OTA update handler, true param is for serial debug
+AutoConnectAux update("/update", "Update");
 AutoConnect Portal(server); // AutoConnect handler object
 AutoConnectConfig portalConfig("MainModuleAP", "12345678");
 
@@ -130,17 +134,17 @@ void asyncBlink(unsigned long ms = 0)
 
 // Button input checking function
 void checkButton(){
-  static unsigned long pushedDownTime = NULL;
-  if (pushedDownTime == NULL && digitalRead(BUTTON_PIN) == LOW){              // Button being pressed
+  static unsigned long pushedDownTime = 0;
+  if (pushedDownTime == 0 && digitalRead(BUTTON_PIN) == LOW){              // Button being pressed
     pushedDownTime = millis();
     
-  }else if (pushedDownTime != NULL  && digitalRead(BUTTON_PIN) == LOW){       // Pressing the button, change the LED light according to the pressing time.
+  }else if (pushedDownTime != 0  && digitalRead(BUTTON_PIN) == LOW){       // Pressing the button, change the LED light according to the pressing time.
     unsigned int pressingDuration = millis() - pushedDownTime;
       if (pressingDuration > REBOOT_BUTTON_HOLD_DURATION && pressingDuration < FACTORY_RESET_BUTTON_HOLD_DURATION){
         asyncBlink(FACTORY_RESET_BUTTON_HOLD_DURATION - pressingDuration);
       }
   }
-  else if (pushedDownTime != NULL && digitalRead(BUTTON_PIN) == HIGH ){       // Button released, check the pressed duration and peform action
+  else if (pushedDownTime != 0 && digitalRead(BUTTON_PIN) == HIGH ){       // Button released, check the pressed duration and peform action
     unsigned int pressingDuration = millis() - pushedDownTime;
     
     if (pressingDuration > FACTORY_RESET_BUTTON_HOLD_DURATION){
@@ -153,7 +157,7 @@ void checkButton(){
       ESP.restart();
     }
 
-    pushedDownTime = NULL;      
+    pushedDownTime = 0;      
   }
 }
 
@@ -618,6 +622,10 @@ void setup()
   server.on("/save_settings", handle_SaveSettings);
   server.on("/getJSON", handle_getSensorJSON);
 
+  // setup update server
+  updateServer.setup(&server);
+  Serial.println("OTA update server started.");
+
   // setup AutoConnect with a configuration
   portalConfig.title = "Main Module v1.0";
   portalConfig.apid = "MainModule-" + String((uint32_t)(ESP.getEfuseMac() >> 32), HEX);
@@ -628,6 +636,8 @@ void setup()
   portalConfig.tickerPort = LED_TICKER;
   portalConfig.tickerOn = HIGH;
   Portal.config(portalConfig);
+  // add update page aux
+  Portal.join({update});
 
   // load custom page JSON and build pages into memory
   if(!Portal.load(customPageJSON))
@@ -653,10 +663,24 @@ void setup()
     Serial.print("IP: ");
     Serial.println(WiFi.localIP());
     Serial.println();
+    // initialize MDNS
+    String mdnshostname = nodeName;
+    mdnshostname.toLowerCase();
+    if(MDNS.begin(mdnshostname.c_str()))
+    {
+      MDNS.addService("http","tcp",80);
+      Serial.println("MDNS transponder started.");
+      Serial.println("Access at http://" + mdnshostname + ".local");
+    }
+    else
+    {
+      Serial.println("MDNS Initialization failed. Service will not be available.");
+    }
+    
   }
   else
   {
-    Serial.println("Connection failed, rebooting.");
+    Serial.println("Portal initialization failed, rebooting.");
     ESP.restart();
   }
 
