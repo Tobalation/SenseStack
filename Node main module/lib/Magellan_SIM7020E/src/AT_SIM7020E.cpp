@@ -716,8 +716,12 @@ void AT_SIM7020E:: manageResponse(String &retdata,String server){
 
 /****************************************/
 /**       SendJSONPOST - HTTP          **/
+/** protocol:   0 HTTPCLIENT_GET       **/
+/**             1 HTTPCLIENT_POST      **/
+/**             2 HTTPCLIENT_PUT       **/
+/**             3 HTTPCLIENT_DELETE    **/
 /****************************************/
-int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,String data){
+int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,int protocol, String header,String contentType, String data){
   bool status=false;
   String responseCode = "";
   _Serial->println(String("AT+CHTTPCREATE=\""+ endpoint +"\""));
@@ -758,11 +762,28 @@ int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,String data){
   
 
   if(status){
-    _Serial->print(F("AT+CHTTPSEND=0,1,"));
+    _Serial->print(String("AT+CHTTPSEND=0,"+String(protocol) +","));
     _Serial->print(String("\""+directory + "\""));
     _Serial->print(F(","));
     //Send header
-    _Serial->print("4163636570743a202a2f2a0d0a436f6e6e656374696f6e3a204b6565702d416c6976650d0a557365722d4167656e743a2053494d434f4d5f4d4f44554c450d0a,\"application/json\",");
+    for( int i = 0; i < header.length(); i++){
+
+      if (header[i] == '\n' ){
+        _Serial->print("0A");
+        // Serial.print("0A");
+      }else if(header[i] == '\r'){
+         _Serial->print("0D");
+        // Serial.print("0D");
+      }
+      else{
+        _Serial->print(header[i],HEX);
+        Serial.print(header[i],HEX);
+      }
+
+    }
+    //Send content-type
+    _Serial->print(",\""+contentType+ "\",");
+
     //Send JSON data
     for( int i = 0; i < data.length(); i++){
       _Serial->print(data[i],HEX);

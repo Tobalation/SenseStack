@@ -392,8 +392,10 @@ void sendDataToEndpointViaNBIoT()
   Serial.println("Sending data to URL" + endPointURL);
   Serial.println("Sending data to Directory" + apiDirectory);
 
+  String header = "Accept: */*\r\nConnection: Keep-Alive\r\nUser-Agent: SIMCOM_MODULE\r\n";
 
-  int httpResponseCode = nb.sendJSONPOST(endPointURL,apiDirectory,currentJSONReply);
+
+  int httpResponseCode = nb.sendJSONPOST(endPointURL,apiDirectory,1,header,"application/json",currentJSONReply);
   lastPOSTreply = "Code: ";
   lastPOSTreply += httpResponseCode;
 

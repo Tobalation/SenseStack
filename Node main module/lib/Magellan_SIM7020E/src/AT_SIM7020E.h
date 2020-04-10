@@ -42,7 +42,7 @@ public:
 	bool checkPSMmode();
 	//==========Data send/rec.===============
 	void waitResponse(String &retdata,String server);
-	int sendJSONPOST(String endpoint,String directory, String data);
+	int sendJSONPOST(String endpoint,String directory,int protocol, String header,String contentType, String data);
 	void _Serial_print(String address,String port,unsigned int len);
 	void _Serial_print(String input);
 	void _Serial_print(unsigned int data);
