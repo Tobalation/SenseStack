@@ -12,6 +12,7 @@
 #include "HTTPUpdateServer.h"
 #include <AutoConnectCredential.h>
 #include <ArduinoJson.h>
+#include "AT_SIM7020E.h"
 
 #include "protocol.h"
 #include "customPages.h" 
@@ -49,10 +50,14 @@ WebServer server;           // HTTP server to serve web UI
 HTTPUpdateServer updateServer(true); // OTA update handler, true param is for serial debug
 AutoConnectAux update("/update", "Update");
 AutoConnect Portal(server); // AutoConnect handler object
+AutoConnectConfig autoConnectConfig;
 AutoConnectConfig portalConfig("MainModuleAP", "12345678");
 
 // NOTE: the data for the custom pages are in the customPages.h header file
 AutoConnectElement viewerHTML("viewerhtml", sensorViewerHTML, AC_Tag_None); // script and HTML for live sensor view
+
+//AIS NB-IoT Communication module
+AT_SIM7020E nb;
 
 
 // -------------- Helper functions -------------- //
@@ -338,6 +343,11 @@ void handle_SaveSettings()
   // redirect back to main page after saving
   server.sendHeader("Location", "/status", true);
   server.send(302, "text/plain", "");
+
+  // restart the module.
+  Serial.println("Restarting..");
+  delay(3000);
+  ESP.restart();
 }
 
 // POST latest JSON string to current URL endpoint
@@ -372,6 +382,32 @@ void sendDataToEndpoint()
   http.end();
 }
 
+void sendDataToEndpointViaNBIoT()
+{
+  int directorySlashPos = currentEndPoint.indexOf('/',8); //omit first 8 character (https://)
+  String endPointURL = currentEndPoint.substring(0,directorySlashPos);
+  String apiDirectory = currentEndPoint.substring(directorySlashPos);
+
+
+  Serial.println("Sending data to URL" + endPointURL);
+  Serial.println("Sending data to Directory" + apiDirectory);
+
+
+  int httpResponseCode = nb.sendJSONPOST(endPointURL,apiDirectory,currentJSONReply);
+  lastPOSTreply = "Code: ";
+  lastPOSTreply += httpResponseCode;
+
+
+}
+
+void initNBIoT(){
+  // nb.setupDevice(address,desport);
+  Serial.println(F("-------------BEGIN-------------"));
+  Serial.print(F(">>DeviceIP: "));
+  Serial.println(nb.getDeviceIP());
+  // nb.pingIP(address);
+}
+
 // -------------- Sensor Module functions -------------- //
 
 // helper function to scan connected modules on I2C bus
@@ -388,6 +424,9 @@ void scanDevices()
   nDevices = 0;
   for (address = 1; address < TOP_ADDRESS; address++)
   {
+    if (address == 0x40){
+      continue;
+    }
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
     if (error == 0) // success
@@ -592,7 +631,7 @@ void fetchData()
 void setup()
 {
   // underclock from 240 MHz to 80 MHz for power saving
-  setCpuFrequencyMhz(80);
+  // setCpuFrequencyMhz(80);
 
   // initialize serial, I2C and SPIFFS
   Serial.begin(9600);
@@ -613,6 +652,9 @@ void setup()
     ESP.restart();
   }
   Serial.println("SPIFFS mounted.");
+
+  //Setup NB-IoT
+  nb.setupModule();
 
   // load settings on boot
   loadSettings();
@@ -656,32 +698,41 @@ void setup()
   Portal.on("/sensorviewer", handle_sensorViewer, AC_EXIT_LATER);
   Portal.onNotFound(handle_NotFound);
 
-  // initialize networking via AutoConnect
-  if (Portal.begin())
-  {
-    Serial.println("\nNetworking started.");
-    Serial.print("IP: ");
-    Serial.println(WiFi.localIP());
-    Serial.println();
-    // initialize MDNS
-    String mdnshostname = nodeName;
-    mdnshostname.toLowerCase();
-    if(MDNS.begin(mdnshostname.c_str()))
+  // if the settings are default, then enter the setup mode.
+  if (currentEndPoint != "https://yourgisdb.com/apiforposting/"){
+    // add configuration to portal
+    autoConnectConfig.immediateStart =false;
+    autoConnectConfig.autoRise = true;
+    Portal.config(autoConnectConfig);
+  }else{
+
+    // initialize networking via AutoConnect
+    if (Portal.begin())
     {
-      MDNS.addService("http","tcp",80);
-      Serial.println("MDNS transponder started.");
-      Serial.println("Access at http://" + mdnshostname + ".local");
+      Serial.println("\nNetworking started.");
+      Serial.print("IP: ");
+      Serial.println(WiFi.localIP());
+      Serial.println();
+      // initialize MDNS
+      String mdnshostname = nodeName;
+      mdnshostname.toLowerCase();
+      if(MDNS.begin(mdnshostname.c_str()))
+      {
+        MDNS.addService("http","tcp",80);
+        Serial.println("MDNS transponder started.");
+        Serial.println("Access at http://" + mdnshostname + ".local");
+      }
+      else
+      {
+        Serial.println("MDNS Initialization failed. Service will not be available.");
+      }
+      
     }
     else
     {
-      Serial.println("MDNS Initialization failed. Service will not be available.");
+      Serial.println("Portal initialization failed, rebooting.");
+      ESP.restart();
     }
-    
-  }
-  else
-  {
-    Serial.println("Portal initialization failed, rebooting.");
-    ESP.restart();
   }
 
   // perform initial device scan
@@ -697,8 +748,8 @@ void setup()
 void loop()
 {
   // handle web UI
-  server.handleClient();
-  Portal.handleRequest();
+  // server.handleClient();
+  // Portal.handleRequest();
 
   // handle button press
   checkButton();
@@ -723,14 +774,15 @@ void loop()
     scanDevices();
     fetchData();
     // Send latest data if it is possible to do so
-    if ((currentJSONReply != NULL || currentJSONReply != "") && (WiFi.status() != WL_IDLE_STATUS) && (WiFi.status() != WL_DISCONNECTED))
+    if ((currentJSONReply != NULL || currentJSONReply != "") )
+    // if ((currentJSONReply != NULL || currentJSONReply != "") && (WiFi.status() != WL_IDLE_STATUS) && (WiFi.status() != WL_DISCONNECTED))
     {
-      if (WiFi.getMode() == WIFI_MODE_STA){
-        sendDataToEndpoint();
+      // if (WiFi.getMode() == WIFI_MODE_STA){
+        sendDataToEndpointViaNBIoT();
         // blink once data is sent
         if (nodeLEDSetting == "On"){
           asyncBlink(200);
-        }
+        
       }
     }
     delay_sensor_update.restart();
