@@ -51,12 +51,17 @@ const static char customPageJSON[] PROGMEM = R"raw(
             {
                 "name": "caption_url",
                 "type": "ACText",
-                "value": "Enter the URL of the destination that you wish to send data to."
+                "value": "Enter the URL and Authorization of the destination that you wish to send data to."
             },
             {
                 "name": "urlInput",
                 "type": "ACInput",
                 "label": "URL"
+            },
+            {
+                "name": "tokenInput",
+                "type": "ACInput",
+                "label": "Token"
             },
             {
                 "name": "header_interval",
