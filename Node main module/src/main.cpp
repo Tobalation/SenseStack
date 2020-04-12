@@ -43,6 +43,7 @@ String nodeUUID = "1234567890";
 String nodeLat = "N/A";
 String nodeLong = "N/A";
 String currentEndPoint = "https://yourgisdb.com/apiforposting/";
+String currentToken = "N/A";
 String nodeLEDSetting = "On";
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
 
@@ -76,12 +77,14 @@ void saveSettings()
   nodeUUID.trim();
   nodeName.trim();
   currentEndPoint.trim();
+  currentToken.trim();
   nodeLat.trim();
   nodeLong.trim();
 
   settingsFile.println(nodeUUID);
   settingsFile.println(nodeName);
   settingsFile.println(currentEndPoint);
+  settingsFile.println(currentToken);
   settingsFile.println(currentUpdateRate);
   settingsFile.println(nodeLat);
   settingsFile.println(nodeLong);
@@ -178,6 +181,7 @@ void loadSettings()
     newSettingsFile.println(nodeUUID);
     newSettingsFile.println(nodeName);
     newSettingsFile.println(currentEndPoint);
+    newSettingsFile.println(currentToken);
     newSettingsFile.println(currentUpdateRate);
     newSettingsFile.println(nodeLat);
     newSettingsFile.println(nodeLong);
@@ -193,6 +197,7 @@ void loadSettings()
       nodeUUID = settingsFile.readStringUntil('\n');
       nodeName = settingsFile.readStringUntil('\n');
       currentEndPoint = settingsFile.readStringUntil('\n');
+      currentToken = settingsFile.readStringUntil('\n');
       currentUpdateRate = settingsFile.readStringUntil('\n').toInt();
       nodeLat = settingsFile.readStringUntil('\n');
       nodeLong = settingsFile.readStringUntil('\n');
@@ -202,6 +207,7 @@ void loadSettings()
       nodeUUID.trim();
       nodeName.trim();
       currentEndPoint.trim();
+      currentToken.trim();
       nodeLat.trim();
       nodeLong.trim();
       nodeLEDSetting.trim();
@@ -209,6 +215,7 @@ void loadSettings()
       Serial.println("Read UUID: " + nodeUUID);
       Serial.println("Read Name: " + nodeName);
       Serial.println("Read EndPoint: " + currentEndPoint);
+      Serial.println("Read current token: "+ currentToken);
       Serial.println("Read UpdateRate: " + String(currentUpdateRate));
       Serial.println("Read Position: " + nodeLat + "," + nodeLong);
       Serial.println("Read LED Setting: " + nodeLEDSetting);
@@ -226,6 +233,7 @@ String handle_Status(AutoConnectAux &aux, PageArgument &args)
   AutoConnectText &title = aux.getElement<AutoConnectText>("header_title");
   AutoConnectText &reply = aux.getElement<AutoConnectText>("currentReply");
   AutoConnectText &endpoint = aux.getElement<AutoConnectText>("currentEndpoint");
+  AutoConnectText &token = aux.getElement<AutoConnectText>("currentToken");
   AutoConnectText &lastpost = aux.getElement<AutoConnectText>("lastPOSTreply");
   AutoConnectText &interval = aux.getElement<AutoConnectText>("currentUpdateRate");
   AutoConnectText &uptime = aux.getElement<AutoConnectText>("currentUpTime");
@@ -233,6 +241,7 @@ String handle_Status(AutoConnectAux &aux, PageArgument &args)
   title.value = "<h2>" + nodeName + " status<h2>";
   reply.value = currentJSONReply;
   endpoint.value = currentEndPoint;
+  token.value = currentToken;
   lastpost.value = lastPOSTreply;
   interval.value = String(currentUpdateRate);
   uptime.value = String(millis() / 1000);
@@ -248,6 +257,7 @@ String handle_Config(AutoConnectAux &aux, PageArgument &args)
   AutoConnectInput &latitude = aux.getElement<AutoConnectInput>("latInput");
   AutoConnectInput &longitude = aux.getElement<AutoConnectInput>("longInput");
   AutoConnectInput &endpoint = aux.getElement<AutoConnectInput>("urlInput");
+  AutoConnectInput &token = aux.getElement<AutoConnectInput>("tokenInput");
   AutoConnectInput &interval = aux.getElement<AutoConnectInput>("intervalInput");
   AutoConnectRadio &ledSetting = aux.getElement<AutoConnectRadio>("ledSettingRadio");
 
@@ -256,6 +266,7 @@ String handle_Config(AutoConnectAux &aux, PageArgument &args)
   latitude.value = nodeLat;
   longitude.value = nodeLong;
   endpoint.value = currentEndPoint;
+  token.value = currentToken;
   interval.value = String(currentUpdateRate);
   if (nodeLEDSetting == "On"){  
     ledSetting.checked = 1;
@@ -301,6 +312,9 @@ void handle_SaveSettings()
   String newurl = server.arg("urlInput");
   currentEndPoint = newurl;
 
+  String newToken = server.arg("tokenInput");
+  currentToken = newToken;
+
   unsigned long newinterval = server.arg("intervalInput").toInt();
   if (currentUpdateRate != newinterval)
   {
@@ -333,6 +347,7 @@ void handle_SaveSettings()
   saveSettings();
 
   Serial.println("Saved new end point URL as " + currentEndPoint);
+  Serial.println("Saved new token as " + currentToken);
   Serial.println("Saved new update rate to be " + String(currentUpdateRate) + " ms");
   Serial.println("Saved node name as " + nodeName);
   Serial.println("Saved UUID as " + nodeUUID);
@@ -358,6 +373,8 @@ void sendDataToEndpoint()
   HTTPClient http;
   http.begin(currentEndPoint);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("Authorization", "Bearer "+currentToken);
+
 
   int httpResponseCode = http.POST(currentJSONReply);
   String response = http.getString();
@@ -417,6 +434,7 @@ void scanDevices()
 {
   for (byte i = 0; i < MAX_SENSORS; i++) // fill modules array with zeroes
   {
+    
     modules[i] = 0;
   }
 
@@ -426,9 +444,10 @@ void scanDevices()
   nDevices = 0;
   for (address = 1; address < TOP_ADDRESS; address++)
   {
-    if (address == 0x40){
+    if (address == 0x40){       //Prevent connection to built-in sensor on NB-IoT board.
       continue;
     }
+
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
     if (error == 0) // success
