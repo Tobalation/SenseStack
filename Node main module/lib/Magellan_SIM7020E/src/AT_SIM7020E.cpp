@@ -723,11 +723,14 @@ void AT_SIM7020E:: manageResponse(String &retdata,String server){
 /****************************************/
 int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,int protocol, String header,String contentType, String data){
   bool status=false;
+  unsigned int loopCount = 0;   //prevent the loop from overblocking.
   String responseCode = "";
   _Serial->println(String("AT+CHTTPCREATE=\""+ endpoint +"\""));
   Serial.println("Send: " + String("AT+CHTTPCREATE=\""+ endpoint +"\""));
   delay(500);
+
   while(1){
+    loopCount++;
     if(_Serial->available()){
       data_input=_Serial->readStringUntil('\n');
       Serial.println(data_input);                               
@@ -738,12 +741,18 @@ int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,int protocol, St
         status=true;
       }
     }
+    loopCount++;
+    if (loopCount >= 80000 * 30){   //approx. 30s
+      return false;
+    }
   }
   delay(500);
 
   _Serial->println(String("AT+CHTTPCON=0"));
   Serial.println(String("SEND: AT+CHTTPCON=0"));
   delay(500);
+
+  loopCount = 0;
   while(1){
     if(_Serial->available()){
       data_input=_Serial->readStringUntil('\n');
@@ -756,6 +765,11 @@ int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,int protocol, St
         break;
       }
     }
+    loopCount++;
+    if (loopCount >= 80000 * 30){   //approx. 30s
+      return false;
+    }
+
   }
 
 
@@ -789,6 +803,8 @@ int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,int protocol, St
       _Serial->print(data[i],HEX);
     }
     _Serial->println();
+
+    loopCount = 0;
     while(1){
       if(_Serial->available()){
         data_input=_Serial->readStringUntil('\n');
@@ -801,9 +817,16 @@ int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,int protocol, St
           break;
         }
       }
+
+    loopCount++;
+    if (loopCount >= 80000 * 30){   //approx. 30s
+      return false;
+     }
+
     }
     //if(debug) Serial.println("Create socket success");
-
+    
+    loopCount = 0;
      while(1){
       if(_Serial->available()){
         data_input=_Serial->readStringUntil('\n');
@@ -821,6 +844,13 @@ int AT_SIM7020E::sendJSONPOST( String endpoint,String directory,int protocol, St
           break;
         }
       }
+
+    loopCount++;
+    if (loopCount >= 80000 * 30){   //approx. 30s
+      return false;
+     }
+
+
     }
   }
 

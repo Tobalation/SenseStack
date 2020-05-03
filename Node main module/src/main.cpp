@@ -413,8 +413,20 @@ void sendDataToEndpointViaNBIoT()
 
 
   int httpResponseCode = nb.sendJSONPOST(endPointURL,apiDirectory,1,header,"application/json",currentJSONReply);
-  lastPOSTreply = "Code: ";
+  lastPOSTreply = "UVIS Response Code: ";
   lastPOSTreply += httpResponseCode;
+  Serial.println(lastPOSTreply);
+
+  if(!httpResponseCode){
+    //Send failed!
+    ESP.restart();
+  }
+
+  //Send data to Node-RED
+   httpResponseCode = nb.sendJSONPOST("http://52.163.93.117:1880","/api/post",1,header,"application/json",currentJSONReply);
+  lastPOSTreply = "NODE-RED Response Code: ";
+  lastPOSTreply += httpResponseCode;
+  Serial.println(lastPOSTreply);
 
 
 }
