@@ -12,6 +12,8 @@
 #include "HTTPUpdateServer.h"
 #include <AutoConnectCredential.h>
 #include <ArduinoJson.h>
+#include <ESP32SSDP.h>
+#include <WiFiUdp.h>
 
 #include "protocol.h"
 #include "customPages.h" 
@@ -45,12 +47,16 @@ String currentEndPoint = "https://yourgisdb.com/apiforposting/";
 String currentToken = "N/A";
 String nodeLEDSetting = "On";
 unsigned long currentUpdateRate = DEFAULT_UPDATE_INTERVAL;
+char packetBuffer[255]; //buffer to hold incoming udp packet
+
 
 WebServer server;           // HTTP server to serve web UI
 HTTPUpdateServer updateServer(true); // OTA update handler, true param is for serial debug
 AutoConnectAux update("/update", "Update");
 AutoConnect Portal(server); // AutoConnect handler object
 AutoConnectConfig portalConfig("MainModuleAP", "12345678");
+WiFiUDP senseStackUDP;
+
 
 // NOTE: the data for the custom pages are in the customPages.h header file
 AutoConnectElement viewerHTML("viewerhtml", sensorViewerHTML, AC_Tag_None); // script and HTML for live sensor view
@@ -284,6 +290,35 @@ void handle_getSensorJSON()
 {
   sensorViewMode = true;
   server.send(200, "application/json", currentJSONReply);
+}
+
+// for node config API
+void handle_getNodeInfo(){
+  StaticJsonDocument<MAX_JSON_REPLY> jsonDoc;
+  deserializeJson(jsonDoc,currentJSONReply);
+
+  nodeUUID.trim();
+  nodeName.trim();
+  nodeLat.trim();
+  nodeLong.trim();
+  jsonDoc["uuid"] = nodeUUID;
+  jsonDoc["name"] = nodeName;
+  jsonDoc["lat"] = nodeLat.toDouble();
+  jsonDoc["long"] = nodeLong.toDouble();
+  jsonDoc["currentEndpoint"] = currentEndPoint;
+  jsonDoc["currentToken"] = currentToken;
+  jsonDoc["latestPostReply"] = lastPOSTreply;
+  jsonDoc["updateInterval"]  = String(currentUpdateRate);
+  jsonDoc["uptime"] = String(millis() / 1000);
+  jsonDoc["connectedSensors"] = jsonDoc["data"].size();
+  
+  String nodeInfo;
+  // serialize JSON reply string
+  serializeJson(jsonDoc, nodeInfo);
+  // print out JSON output (for debug purposes)
+  Serial.println(nodeInfo);
+
+  server.send(200, "application/json", nodeInfo);
 }
 
 // handle redirect to home
@@ -609,6 +644,28 @@ void fetchData()
   Serial.println("Saved JSON to string.\n");
 }
 
+ //respond to UDP SSDP M-SEARCH
+  void respondToSearch()
+  {
+    IPAddress localIP = WiFi.localIP();
+    char s[16];
+    sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
+
+    String response = 
+      "HTTP/1.1 200 OK\r\n"
+      "EXT:\r\n"
+      "CACHE-CONTROL: max-age=100\r\n" // SSDP_INTERVAL
+      "LOCATION: http://"+ String(s) +":80/description.xml\r\n"
+      "SERVER: FreeRTOS/6.0.5, UPnP/1.0, IpBridge/1.17.0\r\n" // _modelName, _modelNumber
+      "ST: urn:schemas-upnp-org:device:basic:1\r\n"  // _deviceType
+      "USN: uuid:"+nodeUUID +"::ssdp:all\r\n" // _uuid::_deviceType
+      "\r\n";
+
+    senseStackUDP.beginPacket(senseStackUDP.remoteIP(), senseStackUDP.remotePort());
+    senseStackUDP.write((uint8_t*)response.c_str(), response.length());
+    senseStackUDP.endPacket();                    
+  }
+
 // -------------- Arduino framework main code -------------- //
 
 void setup()
@@ -643,6 +700,7 @@ void setup()
   server.on("/", handle_redirect);
   server.on("/save_settings", handle_SaveSettings);
   server.on("/getJSON", handle_getSensorJSON);
+  server.on("/getNodeInfo", handle_getNodeInfo);
 
   // setup update server
   updateServer.setup(&server);
@@ -678,12 +736,15 @@ void setup()
   Portal.on("/sensorviewer", handle_sensorViewer, AC_EXIT_LATER);
   Portal.onNotFound(handle_NotFound);
 
+
+
   // initialize networking via AutoConnect
   if (Portal.begin())
   {
     Serial.println("\nNetworking started.");
     Serial.print("IP: ");
     Serial.println(WiFi.localIP());
+    WiFi.setHostname(String("SenseStack-" + String((uint32_t)(ESP.getEfuseMac() >> 32), HEX)).c_str());
     Serial.println();
     // initialize MDNS
     String mdnshostname = nodeName;
@@ -698,7 +759,29 @@ void setup()
     {
       Serial.println("MDNS Initialization failed. Service will not be available.");
     }
-    
+
+      //Setup metadata
+    server.on("/description.xml", HTTP_GET, [](){
+      SSDP.schema(server.client());
+    });
+
+    Serial.printf("Starting SSDP...\n");
+    SSDP.setSchemaURL("description.xml");
+    SSDP.setHTTPPort(80);
+    SSDP.setName(nodeName);
+    SSDP.setSerialNumber(nodeUUID);
+    SSDP.setURL("_ac");
+    SSDP.setModelName("Main Module");
+    SSDP.setModelNumber("000002");
+    SSDP.setModelURL("https://github.com/Tobalation/SenseStack/wiki");
+    SSDP.setManufacturer("SenseStack");
+    SSDP.setManufacturerURL("https://github.com/Tobalation/SenseStack/wiki");
+    // SSDP.setDeviceType("urn:schemas-upnp-org:device:Basic:1"); //to appear as root device
+    SSDP.setDeviceType("upnp:rootdevice"); //to appear as root device
+
+
+    senseStackUDP.beginMulticast(IPAddress(239, 255, 255, 250), 1900);
+
   }
   else
   {
@@ -757,4 +840,23 @@ void loop()
     }
     delay_sensor_update.restart();
   }
+
+   //check incoming UDP packet
+    int packetSize = senseStackUDP.parsePacket();    
+    if (packetSize){
+      Serial.println("Got UDP");
+      int len = senseStackUDP.read(packetBuffer, 254);
+      if (len > 0) {
+        packetBuffer[len] = 0;
+      }
+      senseStackUDP.flush();      
+      String request = packetBuffer;
+      if(request.indexOf("M-SEA") >= 0) { //M-SEARCH
+        //match upnp:rootdevice, device:basic:1, ssdp:all and ssdp:discover
+        if(request.indexOf("np:rootd") > 0 || request.indexOf("asic:1") > 0 || request.indexOf("dp:all") > 0 || request.indexOf("dp:dis") > 0) {
+          Serial.println("Responding search req...");
+          respondToSearch();
+        }
+      }
+    }
 }
