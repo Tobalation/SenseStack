@@ -241,12 +241,24 @@ class SenseStackManagerCLI:
 
 
 
+
     def printNodeStatus(self, ip):
         r = requests.get(ip+"/getNodeInfo")
-        print(r.content)
-        
-            
+        nodeStatus = r.json()
+        print("===== Node status =====")
+        print("name:\t\t" + nodeStatus["name"])
+        print("UUID:\t\t" + nodeStatus["uuid"])
+        print("LAT:\t\t" + str(nodeStatus["lat"]))
+        print("LNG:\t\t" + str(nodeStatus["long"]))
+        print("Endpoint:\t" + nodeStatus["currentEndpoint"])
+        print("Token:\t\t" + nodeStatus["currentToken"][:5] + "......" + nodeStatus["currentToken"][-5:] )
+        print("Latest post reply:\t" + nodeStatus["latestPostReply"])
+        print("Update interval:\t" + str(nodeStatus["updateInterval"]))
+        print("Uptime (s):\t" + str(nodeStatus["uptime"]))
+        print("Connnected sensors:\t" + str(nodeStatus["connectedSensors"]))
 
+        # print(r.content)
+        
 
 
     def prettyPrint(self, string, color, font="slant", figlet=False):
