@@ -22,6 +22,7 @@ from PyInquirer import prompt, print_json, Validator, ValidationError
 import re
 import six
 from pyfiglet import figlet_format
+import webbrowser
 
 try:
     from termcolor import colored
@@ -166,7 +167,7 @@ class SenseStackManagerCLI:
             'type': 'list',
             'name': 'choice',
             'message': 'Node option',
-            'choices': ["View status", "Change parameters", "Flash OTA"]
+            'choices': ["View status", "Go to config page"]
         }
     ]
 
@@ -194,13 +195,15 @@ class SenseStackManagerCLI:
     
     def start(self):
         if (1):
-           if(self.findNode()):
-               if(self.selectNode()):
+            if(self.findNode()):
+                if(self.selectNode()):
                     if(self.selectOption()):
                         pass
 
 
     def findNode(self):
+
+
         findNodeMethod_ans = prompt(self.prompt_findNodeMethod)
         if (findNodeMethod_ans.get("choice") == "Auto scan"):
             self.nodes = manager.discoverSenseStack()
@@ -219,8 +222,11 @@ class SenseStackManagerCLI:
         print("\nIP address\t\t\tNode name")
         print("=======================================================")
 
+
         for key in self.nodes:
             print(f"{key[7:]}\t\t\t{self.nodes.get(key)}")
+        
+        print("")
 
         return True
 
@@ -228,15 +234,17 @@ class SenseStackManagerCLI:
         findNodeMethod_ans = prompt(self.prompt_selectOption)
         if (findNodeMethod_ans.get("choice") == "View status"):
             self.printNodeStatus(self.selectedIP)
+        if (findNodeMethod_ans.get("choice") == "Go to config page"):
+            webbrowser.open(self.selectedIP+"/status")
 
     
     def selectNode(self):
+        self.prompt_selectNode[0]["choices"] = []
         for key in self.nodes:
             self.prompt_selectNode[0]["choices"].append(self.nodes.get(key) + "       " + key[7:])
 
         selectNode_ans = prompt(self.prompt_selectNode)
         self.selectedIP = "http://" + selectNode_ans.get("choice").split('       ')[1]
-        print(self.selectedIP)
         return True
 
 
@@ -259,6 +267,7 @@ class SenseStackManagerCLI:
 
         # print(r.content)
         
+
 
 
     def prettyPrint(self, string, color, font="slant", figlet=False):
