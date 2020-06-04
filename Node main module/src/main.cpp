@@ -760,7 +760,7 @@ void setup()
       Serial.println("MDNS Initialization failed. Service will not be available.");
     }
 
-      //Setup metadata
+    // Setup metadata and SSDP
     server.on("/description.xml", HTTP_GET, [](){
       SSDP.schema(server.client());
     });
@@ -841,7 +841,7 @@ void loop()
     delay_sensor_update.restart();
   }
 
-   //check incoming UDP packet
+   //check incoming UDP packet for SSDP service
     int packetSize = senseStackUDP.parsePacket();    
     if (packetSize){
       Serial.println("Got UDP");
