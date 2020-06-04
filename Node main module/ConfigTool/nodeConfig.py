@@ -1,4 +1,5 @@
-#   Copyright 2014 Dan Krause
+#   Copyright 2020 SenseStack - Universal IoT Hardware Platform for data collection.
+#   Software Engineering, KMITL
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
